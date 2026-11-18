@@ -2,7 +2,8 @@
 
 A containerized HTTP reverse proxy that exposes internal services on a public domain.
 It comes with a web admin panel, per-route rate limiting, optional API keys and a
-tamper-evident audit log (a SHA-256 hash chain stored in PostgreSQL).
+tamper-evident audit log (a hash chain stored in PostgreSQL, signed with HMAC-SHA256 and
+anchored outside the database).
 
 ```
 https://<domain>/myservice/api/x   ──▶   http://localhost:8080/api/x
@@ -11,7 +12,7 @@ https://<domain>/myservice/api/x   ──▶   http://localhost:8080/api/x
 ## Quick start
 
 ```bash
-cp .env.example .env        # set POSTGRES_PASSWORD and GATEWAY_ADMIN_PASSWORD
+cp .env.example .env        # set POSTGRES_PASSWORD, GATEWAY_ADMIN_PASSWORD, GATEWAY_AUDIT_HMAC_KEY
 docker compose up --build
 ```
 
@@ -53,13 +54,33 @@ Rejections are returned as `application/problem+json` (RFC 9457).
 - **Audit log.** The request thread only enqueues an event. A background thread extends
   the hash chain and writes to the database in batches, so auditing never slows down
   proxied traffic. Each instance (`gateway.node-id`) writes its own chain. The database
-  rejects `UPDATE`s through a trigger. Verification from the admin panel recomputes the
-  whole chain, so it detects records that were modified, inserted, removed or reordered
-  without recomputing the hashes that follow, even if the trigger was bypassed. See
-  *Current limitations* for what it cannot detect.
+  rejects `UPDATE`s through a trigger.
+  - Every record is also signed with HMAC-SHA256, using a key that exists only in the
+    configuration (`GATEWAY_AUDIT_HMAC_KEY`). Anyone can recompute plain hashes, but not
+    these signatures, so the chain cannot be rewritten without the key.
+  - At most once per `gateway.audit.anchor-interval` (60 s), and on shutdown, the writer
+    signs the chain head (an *anchor*) and writes it to the log and to
+    `gateway.audit.anchor-dir`, outside the database. The latest records of a chain
+    cannot be deleted without contradicting an anchor.
+  - Verification from the admin panel recomputes every chain, checks every signature and
+    compares the chains with the anchors. It detects records that were modified, inserted,
+    removed or reordered, and chains truncated or deleted before their last anchor.
+    *Current limitations* lists what it cannot detect.
+  - To rotate the key, set the new one and list the old ones in
+    `gateway.audit.previous-hmac-keys`, so older records still verify. Records written
+    before signatures were introduced (migration `V2`) have no signature and fail
+    verification.
 - **Admin panel.** It has login brute-force protection, CSRF tokens and a strict
   Content-Security-Policy. Statistics are cached and recomputed at most every
   `gateway.dashboard.stats-refresh` (5 s by default). Nothing updates in real time.
+- **Machine load.** The panel also shows how loaded the container is, to judge how much
+  more traffic it can take. Every `gateway.monitoring.sample-interval` (5 s) the gateway
+  samples CPU and memory (container-aware, so measured against the container's limits),
+  the JVM heap, busy worker threads, the audit queue and the network traffic of the
+  container's interfaces (from `/proc/net/dev`, so Linux only). Each resource shows its
+  current value and its peak over `gateway.monitoring.window` (15 min); a resource is
+  *High* from a 70% peak and *Critical* from 90%, and a summary names the most loaded one.
+  CPU, bandwidth in and out, and requests per second also have a trend line.
 
 ## HTTPS
 
@@ -77,6 +98,8 @@ Terminate TLS on the public domain, in one of two ways:
 | `DATABASE_URL` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `jdbc:postgresql://localhost:5432/gatekeeper` | PostgreSQL connection |
 | `GATEWAY_ADMIN_PASSWORD` | *(generated and logged at startup)* | admin panel password; `{bcrypt}…` hashes are accepted |
 | `GATEWAY_NODEID` | hostname | identifies this instance's audit chain |
+| `GATEWAY_AUDIT_HMAC_KEY` | *(required)* | secret of at least 32 characters that signs the audit log (`openssl rand -base64 48`) |
+| `GATEWAY_AUDIT_ANCHOR_DIR` | *(empty: log only)* | directory outside the database for audit anchors; share it between instances so any of them can verify every chain |
 | `GATEWAY_RATELIMIT_DEFAULTBURSTCAPACITY` / `…DEFAULTREFILLPERSECOND` | 100 / 50 | default limits for new routes |
 | `GATEWAY_ROUTES_SEED_0_PREFIX` / `…_TARGETURL` | — | routes created at first startup |
 | `PORT` | 8080 | HTTP port |
@@ -100,7 +123,7 @@ Package layout:
 | `core` | pure-Java domain (token bucket, route policy, audit chain), with no framework dependencies |
 | `gateway` | servlet entry point, filter pipeline, HTTP forwarder |
 | `route` | route management (in-memory cache and PostgreSQL) |
-| `audit` | asynchronous audit writer and chain verification |
+| `audit` | asynchronous audit writer, HMAC signing, anchors and chain verification |
 | `ratelimit` | per-client token buckets with eviction |
 | `admin` | admin panel and login throttling |
 | `config` | configuration properties, security, shared beans |
@@ -142,7 +165,13 @@ One-time setup on GitHub:
 - One upstream per route: no load balancing or upstream health checks.
 - No WebSocket or other protocol upgrades: plain HTTP requests only.
 - Rate limits and statistics are per instance, not shared across nodes.
-- The audit chain uses no secret, and its head is not recorded outside the database.
-  Someone with write access to the database can therefore rewrite a record and recompute
-  every following hash, or delete the latest records of a chain (or a whole chain),
-  without verification noticing. Removing the oldest records looks the same as retention.
+- The audit log resists anyone who can write to the database but holds neither the HMAC
+  key nor write access to the anchor storage. Whoever has the key can forge records, and
+  whoever controls both the database and the anchor storage can delete the latest records
+  undetected.
+- Records written after the last anchor (at most `gateway.audit.anchor-interval`, 60 s by
+  default) can be deleted from the end of a chain without verification noticing.
+- Without `gateway.audit.anchor-dir`, anchors only reach the log: verification cannot detect
+  deletions from the end of a chain, unless someone compares the logged anchors by hand.
+- Removing the oldest records looks the same as retention. A node whose records were all
+  purged on purpose fails verification until its anchor file is removed too.
