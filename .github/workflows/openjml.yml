@@ -1,10 +1,11 @@
 name: OpenJML
 
-# Checks the JML specifications of the pure-Java core package.
-#   - type check (-check): JML syntax and typing. Blocking.
-#   - static verification (-esc): proves the code against its specifications.
-#     Report-only until the existing specifications have been verified once;
-#     then remove `continue-on-error` to make it blocking.
+# Checks the JML specifications of the pure-Java core package (both steps are blocking):
+#   - type check (-check): JML syntax and typing;
+#   - static verification (-esc): proves every method against its specification.
+# Methods whose bodies depend on JDK classes without usable JML specifications
+# (MessageDigest, URI, StringBuilder) are marked `skipesc` in the source; their
+# specifications are still used to verify their callers, and the unit tests cover them.
 
 on:
   push:
@@ -30,6 +31,7 @@ jobs:
   openjml:
     name: JML specifications (core)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -51,17 +53,31 @@ jobs:
       - name: Core sources
         run: find "$CORE_DIR" -name '*.java' | sort | tee /tmp/core-sources.txt
 
+      # No --release flag: OpenJML ships JML specs for the JDK it is built on (21), and
+      # targeting an older platform makes those specs fail to load. core is plain
+      # Java 17 code, which compiles unchanged on 21.
       - name: Type check
-        run: ~/openjml/openjml -check --release 17 @/tmp/core-sources.txt
+        run: ~/openjml/openjml -check @/tmp/core-sources.txt
 
       - name: Static verification
-        continue-on-error: true
         run: |
           set -o pipefail
-          ~/openjml/openjml -esc --release 17 -progress @/tmp/core-sources.txt 2>&1 | tee /tmp/esc.log
+          ~/openjml/openjml -esc -progress @/tmp/core-sources.txt 2>&1 | tee /tmp/esc.log
+
+      - name: Verification summary
+        if: ${{ always() }}
+        run: |
+          [ -f /tmp/esc.log ] || exit 0
           {
             echo "### OpenJML static verification"
+            echo
+            echo "- proved without warnings: $(grep -c 'no warnings' /tmp/esc.log)"
+            echo "- with warnings or timeouts: $(grep -E '^Completed proof' /tmp/esc.log | grep -vc 'no warnings')"
+            echo
+            echo '<details><summary>Warnings</summary>'
+            echo
             echo '```'
-            tail -n 60 /tmp/esc.log
+            grep -A2 -E 'verify:|warning:' /tmp/esc.log | head -n 200
             echo '```'
+            echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -29,6 +29,7 @@ public final class Sha256 {
       @   ensures \result != null && \result.length() == HEX_LENGTH;
       @ pure
       @*/
+    //@ skipesc // body relies on java.security.MessageDigest, which has no usable JML specification; covered by Sha256Test
     public static String hex(String input) {
         byte[] digest = newDigest().digest(input.getBytes(StandardCharsets.UTF_8));
         char[] out = new char[digest.length * 2];
@@ -50,7 +51,7 @@ public final class Sha256 {
       @   ensures (a == null || b == null) ==> !\result;
       @ pure
       @*/
-    public static boolean constantTimeEquals(String a, String b) {
+    public static boolean constantTimeEquals(/*@ nullable @*/ String a, /*@ nullable @*/ String b) {
         if (a == null || b == null) {
             return false;
         }
@@ -61,14 +62,18 @@ public final class Sha256 {
      * @return {@code true} iff {@code s} is exactly 64 lowercase hex characters
      */
     /*@ public normal_behavior
-      @   ensures \result ==> s != null && s.length() == HEX_LENGTH;
+      @   ensures \result <==> s != null && s.length() == HEX_LENGTH
+      @       && (\forall int j; 0 <= j && j < HEX_LENGTH;
+      @              ('0' <= s.charAt(j) && s.charAt(j) <= '9') || ('a' <= s.charAt(j) && s.charAt(j) <= 'f'));
       @ pure
       @*/
-    public static boolean isHexDigest(String s) {
+    public static boolean isHexDigest(/*@ nullable @*/ String s) {
         if (s == null || s.length() != HEX_LENGTH) {
             return false;
         }
         //@ maintaining 0 <= i && i <= s.length();
+        //@ maintaining (\forall int j; 0 <= j && j < i;
+        //@     ('0' <= s.charAt(j) && s.charAt(j) <= '9') || ('a' <= s.charAt(j) && s.charAt(j) <= 'f'));
         //@ decreasing s.length() - i;
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);

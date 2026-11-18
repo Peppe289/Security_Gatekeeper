@@ -32,7 +32,7 @@ public final class AuditChainVerifier {
       @   requires anchorHash == null;
       @   signals_only IllegalArgumentException;
       @*/
-    public AuditChainVerifier(String anchorHash) {
+    public AuditChainVerifier(/*@ nullable @*/ String anchorHash) {
         if (anchorHash == null) {
             throw new IllegalArgumentException("anchorHash must not be null");
         }
@@ -45,6 +45,7 @@ public final class AuditChainVerifier {
      */
     /*@ public normal_behavior
       @   requires rec != null;
+      @   requires rec.sequence < Long.MAX_VALUE && checked < Long.MAX_VALUE;
       @   ensures \result <==> firstInvalidSequence == -1;
       @   ensures \old(firstInvalidSequence) != -1 ==> !\result;
       @*/
@@ -64,19 +65,25 @@ public final class AuditChainVerifier {
         return true;
     }
 
-    //@ ensures \result <==> firstInvalidSequence == -1;
+    /*@ public normal_behavior
+      @   ensures \result <==> firstInvalidSequence == -1;
+      @*/
     public /*@ pure @*/ boolean isValid() {
         return firstInvalidSequence == -1;
     }
 
     /** @return number of records verified successfully */
-    //@ ensures \result == checked;
+    /*@ public normal_behavior
+      @   ensures \result == checked;
+      @*/
     public /*@ pure @*/ long checkedCount() {
         return checked;
     }
 
     /** @return sequence number of the first invalid record, or {@code -1} */
-    //@ ensures \result == firstInvalidSequence;
+    /*@ public normal_behavior
+      @   ensures \result == firstInvalidSequence;
+      @*/
     public /*@ pure @*/ long firstInvalidSequence() {
         return firstInvalidSequence;
     }

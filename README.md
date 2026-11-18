@@ -111,7 +111,7 @@ GitHub Actions workflows live in `.github/workflows`:
 |---|---|---|
 | `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gate on `core`), PiTest with a blocking mutation threshold, Docker image build. On `master` it also publishes the JaCoCo and PiTest reports to GitHub Pages. |
 | `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
-| `openjml.yml` | changes to `core` | OpenJML type check of the JML specifications (blocking) and static verification (report-only for now). |
+| `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
 | `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
 

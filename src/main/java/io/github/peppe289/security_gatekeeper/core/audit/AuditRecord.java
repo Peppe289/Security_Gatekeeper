@@ -43,9 +43,11 @@ public final class AuditRecord {
       @   requires sequence < 0 || clientIp == null || method == null || path == null
       @         || routePrefix == null || decision == null || previousHash == null || hash == null;
       @   signals_only IllegalArgumentException;
+      @ pure
       @*/
-    public AuditRecord(long sequence, long timestampMillis, String clientIp, String method, String path,
-                       String routePrefix, String decision, int httpStatus, String previousHash, String hash) {
+    public AuditRecord(long sequence, long timestampMillis, /*@ nullable @*/ String clientIp, /*@ nullable @*/ String method, /*@ nullable @*/ String path,
+                       /*@ nullable @*/ String routePrefix, /*@ nullable @*/ String decision, int httpStatus, /*@ nullable @*/ String previousHash,
+                       /*@ nullable @*/ String hash) {
         if (sequence < 0) {
             throw new IllegalArgumentException("sequence must be >= 0");
         }
@@ -72,6 +74,7 @@ public final class AuditRecord {
       @   requires routePrefix != null && decision != null && previousHash != null;
       @   ensures \result.sequence == sequence && \result.previousHash == previousHash;
       @   ensures \result.hash.length() == Sha256.HEX_LENGTH;
+      @ pure
       @*/
     public static AuditRecord create(long sequence, long timestampMillis, String clientIp, String method,
                                      String path, String routePrefix, String decision, int httpStatus,
@@ -85,9 +88,10 @@ public final class AuditRecord {
     /*@ public normal_behavior
       @   requires clientIp != null && method != null && path != null;
       @   requires routePrefix != null && decision != null && previousHash != null;
-      @   ensures \result.length() == Sha256.HEX_LENGTH;
+      @   ensures \result != null && \result.length() == Sha256.HEX_LENGTH;
       @ pure
       @*/
+    //@ skipesc // canonical serialization via StringBuilder (no usable JML specification); covered by AuditRecordTest
     public static String computeHash(long sequence, long timestampMillis, String clientIp, String method,
                                      String path, String routePrefix, String decision, int httpStatus,
                                      String previousHash) {
@@ -104,6 +108,7 @@ public final class AuditRecord {
         return Sha256.hex(sb.toString());
     }
 
+    //@ skipesc // helper of computeHash
     private static void field(StringBuilder sb, String value) {
         sb.append(value.length()).append(':').append(value).append('|');
     }
@@ -118,52 +123,72 @@ public final class AuditRecord {
         return expected.equals(hash);
     }
 
-    //@ ensures \result == sequence;
+    /*@ public normal_behavior
+      @   ensures \result == sequence;
+      @*/
     public /*@ pure @*/ long getSequence() {
         return sequence;
     }
 
-    //@ ensures \result == timestampMillis;
+    /*@ public normal_behavior
+      @   ensures \result == timestampMillis;
+      @*/
     public /*@ pure @*/ long getTimestampMillis() {
         return timestampMillis;
     }
 
-    //@ ensures \result == clientIp;
+    /*@ public normal_behavior
+      @   ensures \result == clientIp;
+      @*/
     public /*@ pure @*/ String getClientIp() {
         return clientIp;
     }
 
-    //@ ensures \result == method;
+    /*@ public normal_behavior
+      @   ensures \result == method;
+      @*/
     public /*@ pure @*/ String getMethod() {
         return method;
     }
 
-    //@ ensures \result == path;
+    /*@ public normal_behavior
+      @   ensures \result == path;
+      @*/
     public /*@ pure @*/ String getPath() {
         return path;
     }
 
-    //@ ensures \result == routePrefix;
+    /*@ public normal_behavior
+      @   ensures \result == routePrefix;
+      @*/
     public /*@ pure @*/ String getRoutePrefix() {
         return routePrefix;
     }
 
-    //@ ensures \result == decision;
+    /*@ public normal_behavior
+      @   ensures \result == decision;
+      @*/
     public /*@ pure @*/ String getDecision() {
         return decision;
     }
 
-    //@ ensures \result == httpStatus;
+    /*@ public normal_behavior
+      @   ensures \result == httpStatus;
+      @*/
     public /*@ pure @*/ int getHttpStatus() {
         return httpStatus;
     }
 
-    //@ ensures \result == previousHash;
+    /*@ public normal_behavior
+      @   ensures \result == previousHash;
+      @*/
     public /*@ pure @*/ String getPreviousHash() {
         return previousHash;
     }
 
-    //@ ensures \result == hash;
+    /*@ public normal_behavior
+      @   ensures \result == hash;
+      @*/
     public /*@ pure @*/ String getHash() {
         return hash;
     }

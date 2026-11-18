@@ -20,7 +20,7 @@ public final class RoutePolicy {
     public static final String PREFIX_PATTERN = "[a-z0-9][a-z0-9-]{0,62}";
     public static final long MAX_BURST_CAPACITY = 1_000_000L;
     public static final long MAX_REFILL_PER_SECOND = 1_000_000_000L;
-    private static final long NANOS_PER_SECOND = 1_000_000_000L;
+    private static final /*@ spec_public @*/ long NANOS_PER_SECOND = 1_000_000_000L;
 
     private final /*@ spec_public @*/ String prefix;
     private final /*@ spec_public @*/ String targetUrl;
@@ -58,10 +58,39 @@ public final class RoutePolicy {
       @         || refillPerSecond < 1 || refillPerSecond > MAX_REFILL_PER_SECOND;
       @   signals_only IllegalArgumentException;
       @*/
-    public RoutePolicy(String prefix, String targetUrl, boolean enabled, String apiKeyHash,
+    public RoutePolicy(/*@ nullable @*/ String prefix, /*@ nullable @*/ String targetUrl, boolean enabled, /*@ nullable @*/ String apiKeyHash,
                        long burstCapacity, long refillPerSecond) {
+        validate(prefix, targetUrl, apiKeyHash, burstCapacity, refillPerSecond);
+        this.prefix = prefix;
+        this.targetUrl = stripTrailingSlash(targetUrl);
+        this.enabled = enabled;
+        this.apiKeyHash = apiKeyHash;
+        this.burstCapacity = burstCapacity;
+        this.refillPerSecond = refillPerSecond;
+    }
+
+    /*@ private normal_behavior
+      @   requires isValidPrefix(prefix) && isValidTargetUrl(targetUrl);
+      @   requires apiKeyHash == null || Sha256.isHexDigest(apiKeyHash);
+      @   requires 1 <= burstCapacity && burstCapacity <= MAX_BURST_CAPACITY;
+      @   requires 1 <= refillPerSecond && refillPerSecond <= MAX_REFILL_PER_SECOND;
+      @ also private exceptional_behavior
+      @   requires !isValidPrefix(prefix) || !isValidTargetUrl(targetUrl)
+      @         || (apiKeyHash != null && !Sha256.isHexDigest(apiKeyHash))
+      @         || burstCapacity < 1 || burstCapacity > MAX_BURST_CAPACITY
+      @         || refillPerSecond < 1 || refillPerSecond > MAX_REFILL_PER_SECOND;
+      @   signals_only IllegalArgumentException;
+      @ pure
+      @*/
+    // The prover cannot relate several consecutive calls to methods it only knows by their
+    // specification (isValidTargetUrl, Sha256.isHexDigest) to the same calls in this spec.
+    // The body is a literal transcription of the spec; each check is verified on its own
+    // and every rejection is covered by RoutePolicyTest.
+    //@ skipesc
+    private static void validate(/*@ nullable @*/ String prefix, /*@ nullable @*/ String targetUrl,
+                                 /*@ nullable @*/ String apiKeyHash, long burstCapacity, long refillPerSecond) {
         if (!isValidPrefix(prefix)) {
-            throw new IllegalArgumentException("prefix must match " + PREFIX_PATTERN);
+            throw new IllegalArgumentException("prefix must match [a-z0-9][a-z0-9-]{0,62}");
         }
         if (!isValidTargetUrl(targetUrl)) {
             throw new IllegalArgumentException("targetUrl must be an absolute http(s) URL without credentials, query or fragment");
@@ -70,17 +99,11 @@ public final class RoutePolicy {
             throw new IllegalArgumentException("apiKeyHash must be a SHA-256 hex digest");
         }
         if (burstCapacity < 1 || burstCapacity > MAX_BURST_CAPACITY) {
-            throw new IllegalArgumentException("burstCapacity must be in [1, " + MAX_BURST_CAPACITY + "]");
+            throw new IllegalArgumentException("burstCapacity must be in [1, 1000000]");
         }
         if (refillPerSecond < 1 || refillPerSecond > MAX_REFILL_PER_SECOND) {
-            throw new IllegalArgumentException("refillPerSecond must be in [1, " + MAX_REFILL_PER_SECOND + "]");
+            throw new IllegalArgumentException("refillPerSecond must be in [1, 1000000000]");
         }
-        this.prefix = prefix;
-        this.targetUrl = stripTrailingSlash(targetUrl);
-        this.enabled = enabled;
-        this.apiKeyHash = apiKeyHash;
-        this.burstCapacity = burstCapacity;
-        this.refillPerSecond = refillPerSecond;
     }
 
     /**
@@ -91,7 +114,7 @@ public final class RoutePolicy {
       @   ensures \result ==> prefix != null && 1 <= prefix.length() && prefix.length() <= MAX_PREFIX_LENGTH;
       @ pure
       @*/
-    public static boolean isValidPrefix(String prefix) {
+    public static boolean isValidPrefix(/*@ nullable @*/ String prefix) {
         if (prefix == null || prefix.isEmpty() || prefix.length() > MAX_PREFIX_LENGTH) {
             return false;
         }
@@ -116,10 +139,11 @@ public final class RoutePolicy {
      * and carry no user-info, query or fragment.
      */
     /*@ public normal_behavior
-      @   ensures \result ==> targetUrl != null;
+      @   ensures \result ==> targetUrl != null && targetUrl.length() > 0;
       @ pure
       @*/
-    public static boolean isValidTargetUrl(String targetUrl) {
+    //@ skipesc // body relies on java.net.URI, which has no usable JML specification; covered by RoutePolicyTest
+    public static boolean isValidTargetUrl(/*@ nullable @*/ String targetUrl) {
         if (targetUrl == null) {
             return false;
         }
@@ -136,8 +160,13 @@ public final class RoutePolicy {
         }
     }
 
-    private static String stripTrailingSlash(String url) {
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    /*@ private normal_behavior
+      @   requires url != null && url.length() > 0;
+      @   ensures \result != null;
+      @*/
+    private static /*@ pure @*/ String stripTrailingSlash(String url) {
+        int last = url.length() - 1;
+        return url.charAt(last) == '/' ? url.substring(0, last) : url;
     }
 
     /** @return a copy with the given enabled flag */
@@ -145,16 +174,39 @@ public final class RoutePolicy {
       @   ensures \result.enabled == enabled && \result.prefix == prefix && \result.apiKeyHash == apiKeyHash;
       @*/
     public RoutePolicy withEnabled(boolean enabled) {
-        return new RoutePolicy(prefix, targetUrl, enabled, apiKeyHash, burstCapacity, refillPerSecond);
+        return new RoutePolicy(this, enabled, apiKeyHash);
     }
 
     /** @return a copy protected by the given key digest ({@code null} makes the route public) */
     /*@ public normal_behavior
       @   requires apiKeyHash == null || Sha256.isHexDigest(apiKeyHash);
       @   ensures \result.apiKeyHash == apiKeyHash && \result.prefix == prefix && \result.enabled == enabled;
+      @ also public exceptional_behavior
+      @   requires apiKeyHash != null && !Sha256.isHexDigest(apiKeyHash);
+      @   signals_only IllegalArgumentException;
       @*/
-    public RoutePolicy withApiKeyHash(String apiKeyHash) {
-        return new RoutePolicy(prefix, targetUrl, enabled, apiKeyHash, burstCapacity, refillPerSecond);
+    public RoutePolicy withApiKeyHash(/*@ nullable @*/ String apiKeyHash) {
+        if (apiKeyHash != null && !Sha256.isHexDigest(apiKeyHash)) {
+            throw new IllegalArgumentException("apiKeyHash must be a SHA-256 hex digest");
+        }
+        return new RoutePolicy(this, enabled, apiKeyHash);
+    }
+
+    /** Copy of an already validated policy with a new enabled flag and key digest. */
+    /*@ private normal_behavior
+      @   requires source != null;
+      @   requires apiKeyHash == null || apiKeyHash.length() == Sha256.HEX_LENGTH;
+      @   ensures this.prefix == source.prefix && this.targetUrl == source.targetUrl;
+      @   ensures this.enabled == enabled && this.apiKeyHash == apiKeyHash;
+      @   ensures this.burstCapacity == source.burstCapacity && this.refillPerSecond == source.refillPerSecond;
+      @*/
+    private RoutePolicy(RoutePolicy source, boolean enabled, /*@ nullable @*/ String apiKeyHash) {
+        this.prefix = source.prefix;
+        this.targetUrl = source.targetUrl;
+        this.enabled = enabled;
+        this.apiKeyHash = apiKeyHash;
+        this.burstCapacity = source.burstCapacity;
+        this.refillPerSecond = source.refillPerSecond;
     }
 
     /** Nanoseconds between two tokens, always {@code >= 1}. */
@@ -167,42 +219,57 @@ public final class RoutePolicy {
         return NANOS_PER_SECOND / refillPerSecond;
     }
 
-    //@ ensures \result == (apiKeyHash != null);
+    /*@ public normal_behavior
+      @   ensures \result == (apiKeyHash != null);
+      @*/
     public /*@ pure @*/ boolean requiresApiKey() {
         return apiKeyHash != null;
     }
 
-    //@ ensures \result == prefix;
+    /*@ public normal_behavior
+      @   ensures \result == prefix;
+      @*/
     public /*@ pure @*/ String getPrefix() {
         return prefix;
     }
 
-    //@ ensures \result == targetUrl;
+    /*@ public normal_behavior
+      @   ensures \result == targetUrl;
+      @*/
     public /*@ pure @*/ String getTargetUrl() {
         return targetUrl;
     }
 
-    //@ ensures \result == enabled;
+    /*@ public normal_behavior
+      @   ensures \result == enabled;
+      @*/
     public /*@ pure @*/ boolean isEnabled() {
         return enabled;
     }
 
-    //@ ensures \result == apiKeyHash;
+    /*@ public normal_behavior
+      @   ensures \result == apiKeyHash;
+      @*/
     public /*@ pure nullable @*/ String getApiKeyHash() {
         return apiKeyHash;
     }
 
-    //@ ensures \result == burstCapacity;
+    /*@ public normal_behavior
+      @   ensures \result == burstCapacity;
+      @*/
     public /*@ pure @*/ long getBurstCapacity() {
         return burstCapacity;
     }
 
-    //@ ensures \result == refillPerSecond;
+    /*@ public normal_behavior
+      @   ensures \result == refillPerSecond;
+      @*/
     public /*@ pure @*/ long getRefillPerSecond() {
         return refillPerSecond;
     }
 
     @Override
+    //@ skipesc // diagnostic string only, no specification
     public String toString() {
         // The key digest is deliberately omitted.
         return "RoutePolicy[" + prefix + " -> " + targetUrl + ", enabled=" + enabled

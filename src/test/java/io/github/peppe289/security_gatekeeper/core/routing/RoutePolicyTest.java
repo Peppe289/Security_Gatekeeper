@@ -101,6 +101,10 @@ class RoutePolicyTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> policy("a", URL, "not-a-digest", 1, 1));
         assertEquals("apiKeyHash must be a SHA-256 hex digest", e.getMessage());
+
+        RoutePolicy valid = policy("a", URL, null, 1, 1);
+        e = assertThrows(IllegalArgumentException.class, () -> valid.withApiKeyHash("not-a-digest"));
+        assertEquals("apiKeyHash must be a SHA-256 hex digest", e.getMessage());
     }
 
     @ParameterizedTest

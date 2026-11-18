@@ -200,25 +200,33 @@ public final class TokenBucket {
     }
 
     /** @return the maximum burst size */
-    //@ ensures \result == capacity;
+    /*@ public normal_behavior
+      @   ensures \result == capacity;
+      @*/
     public /*@ pure @*/ long getCapacity() {
         return capacity;
     }
 
     /** @return nanoseconds needed to generate one token */
-    //@ ensures \result == nanosPerToken;
+    /*@ public normal_behavior
+      @   ensures \result == nanosPerToken;
+      @*/
     public /*@ pure @*/ long getNanosPerToken() {
         return nanosPerToken;
     }
 
     /** @return tokens stored as of the last refill (no refill is performed) */
-    //@ ensures \result == tokens;
+    /*@ public normal_behavior
+      @   ensures \result == tokens;
+      @*/
     public /*@ pure @*/ long getTokens() {
         return tokens;
     }
 
     /** @return the instant up to which time has been converted into tokens */
-    //@ ensures \result == lastRefillNanos;
+    /*@ public normal_behavior
+      @   ensures \result == lastRefillNanos;
+      @*/
     public /*@ pure @*/ long getLastRefillNanos() {
         return lastRefillNanos;
     }

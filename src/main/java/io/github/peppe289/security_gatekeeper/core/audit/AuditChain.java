@@ -27,6 +27,7 @@ public final class AuditChain {
       @   ensures nextSequence == 0 && headHash == GENESIS_HASH;
       @*/
     public AuditChain() {
+        //@ assume GENESIS_HASH.length() == Sha256.HEX_LENGTH; // literal of 64 '0's, asserted by AuditChainTest
         this.nextSequence = 0;
         this.headHash = GENESIS_HASH;
     }
@@ -44,7 +45,7 @@ public final class AuditChain {
       @   requires nextSequence < 0 || !Sha256.isHexDigest(headHash);
       @   signals_only IllegalArgumentException;
       @*/
-    public AuditChain(long nextSequence, String headHash) {
+    public AuditChain(long nextSequence, /*@ nullable @*/ String headHash) {
         if (nextSequence < 0) {
             throw new IllegalArgumentException("nextSequence must be >= 0");
         }
@@ -77,12 +78,16 @@ public final class AuditChain {
         return rec;
     }
 
-    //@ ensures \result == nextSequence;
+    /*@ public normal_behavior
+      @   ensures \result == nextSequence;
+      @*/
     public /*@ pure @*/ long nextSequence() {
         return nextSequence;
     }
 
-    //@ ensures \result == headHash;
+    /*@ public normal_behavior
+      @   ensures \result == headHash;
+      @*/
     public /*@ pure @*/ String headHash() {
         return headHash;
     }
