@@ -5,6 +5,7 @@ import io.github.peppe289.security_gatekeeper.core.ratelimit.TokenBucket;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,10 @@ public class RateLimiterService {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimiterService.class);
 
+    private static final long INLINE_EVICTION_INTERVAL_NANOS = 1_000_000_000L;
+
     private final ConcurrentMap<String, TokenBucket> buckets = new ConcurrentHashMap<>();
+    private final AtomicLong nextInlineEvictionNanos = new AtomicLong();
     private final NanoClock clock;
     private final int maxTrackedClients;
 
@@ -49,9 +53,12 @@ public class RateLimiterService {
         TokenBucket bucket = buckets.get(key);
         if (bucket == null) {
             if (buckets.size() >= maxTrackedClients) {
-                evictIdle();
+                boolean evicted = evictIdleThrottled();
                 if (buckets.size() >= maxTrackedClients) {
-                    log.warn("Rate limiter tracks {} clients (limit reached): rejecting new client", buckets.size());
+                    if (evicted) {
+                        log.warn("Rate limiter tracks {} clients (limit reached): rejecting new clients",
+                                buckets.size());
+                    }
                     return false;
                 }
             }
@@ -95,6 +102,23 @@ public class RateLimiterService {
                 }
             }
         }
+    }
+
+    /**
+     * Full scans are O(n) under per-bucket locks: when the registry is full, a flood of new
+     * clients must not trigger one per request. Runs {@link #evictIdle()} at most once per
+     * {@link #INLINE_EVICTION_INTERVAL_NANOS}.
+     *
+     * @return {@code true} if this call ran the eviction
+     */
+    private boolean evictIdleThrottled() {
+        long now = clock.nanos();
+        long next = nextInlineEvictionNanos.get();
+        if (now < next || !nextInlineEvictionNanos.compareAndSet(next, now + INLINE_EVICTION_INTERVAL_NANOS)) {
+            return false;
+        }
+        evictIdle();
+        return true;
     }
 
     public int trackedClients() {

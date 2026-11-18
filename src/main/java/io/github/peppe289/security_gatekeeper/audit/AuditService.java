@@ -31,7 +31,8 @@ import org.springframework.stereotype.Service;
  * {@code offer}): hashing and database I/O happen on a single background
  * writer thread, which owns the {@link AuditChain} and therefore needs no
  * locking. If the database is unavailable the current batch is retried with
- * backoff; if the queue overflows, new events are dropped and counted rather
+ * backoff; after a sequence collision the chain is resumed from the stored
+ * head. If the queue overflows, new events are dropped and counted rather
  * than slowing down proxied traffic.
  */
 @Service
@@ -43,6 +44,7 @@ public class AuditService implements SmartLifecycle {
     static final int MAX_METHOD_LENGTH = 16;
     static final int MAX_IP_LENGTH = 45;
     static final int MAX_PREFIX_LENGTH = 63;
+    private static final Duration INITIAL_RETRY_BACKOFF = Duration.ofMillis(200);
     private static final Duration MAX_RETRY_BACKOFF = Duration.ofSeconds(30);
 
     private final AuditRepository repository;
@@ -213,34 +215,54 @@ public class AuditService implements SmartLifecycle {
     }
 
     private void persist(List<AuditEvent> events) {
-        List<AuditRecord> records = new ArrayList<>(events.size());
-        for (AuditEvent e : events) {
-            records.add(chain.append(e.timestampMillis(), e.clientIp(), e.method(), e.path(), e.routePrefix(),
-                    e.decision().name(), e.httpStatus()));
-        }
-        Duration backoff = Duration.ofMillis(200);
+        List<AuditRecord> records = appendToChain(events);
+        Duration backoff = INITIAL_RETRY_BACKOFF;
+        boolean collided = false;
         while (true) {
             try {
+                if (collided) {
+                    if (repository.contains(nodeId, records.get(records.size() - 1))) {
+                        // A previous attempt was committed but reported as failed (e.g. connection lost on commit).
+                        log.warn("Audit batch of {} records had already been persisted", records.size());
+                        persisted.add(records.size());
+                        return;
+                    }
+                    // Someone else extended this node's chain: continue from the stored head.
+                    chain = repository.findHead(nodeId)
+                            .map(h -> new AuditChain(h.lastSequence() + 1, h.lastHash()))
+                            .orElseGet(AuditChain::new);
+                    records = appendToChain(events);
+                    collided = false;
+                }
                 repository.insertBatch(nodeId, records);
                 persisted.add(records.size());
                 return;
             } catch (DuplicateKeyException ex) {
                 log.error("Audit sequence collision for node '{}': is another instance running with the same "
-                        + "gateway.node-id? Retrying in {}", nodeId, backoff);
-                if (!sleep(backoff)) {
-                    return;
-                }
-                backoff = MAX_RETRY_BACKOFF;
+                        + "gateway.node-id? Resynchronizing the chain", nodeId);
+                collided = true;
             } catch (RuntimeException ex) {
                 log.warn("Audit batch of {} records not persisted ({}); retrying in {}",
                         records.size(), ex.getClass().getSimpleName(), backoff);
-                if (!sleep(backoff)) {
-                    log.error("Shutdown while database unavailable: {} audit records lost", records.size());
-                    return;
-                }
-                backoff = backoff.multipliedBy(2).compareTo(MAX_RETRY_BACKOFF) > 0 ? MAX_RETRY_BACKOFF : backoff.multipliedBy(2);
+            }
+            if (!sleep(backoff)) {
+                log.error("Shutdown before the batch could be persisted: {} audit records lost", records.size());
+                return;
+            }
+            backoff = backoff.multipliedBy(2);
+            if (backoff.compareTo(MAX_RETRY_BACKOFF) > 0) {
+                backoff = MAX_RETRY_BACKOFF;
             }
         }
+    }
+
+    private List<AuditRecord> appendToChain(List<AuditEvent> events) {
+        List<AuditRecord> records = new ArrayList<>(events.size());
+        for (AuditEvent e : events) {
+            records.add(chain.append(e.timestampMillis(), e.clientIp(), e.method(), e.path(), e.routePrefix(),
+                    e.decision().name(), e.httpStatus()));
+        }
+        return records;
     }
 
     private boolean sleep(Duration d) {

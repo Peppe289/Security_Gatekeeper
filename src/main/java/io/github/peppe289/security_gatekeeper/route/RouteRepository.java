@@ -30,28 +30,36 @@ public class RouteRepository {
 
     /** @throws org.springframework.dao.DuplicateKeyException if the prefix exists */
     public void insert(RoutePolicy p) {
-        jdbc.sql("INSERT INTO routes (" + COLUMNS + ") VALUES (?, ?, ?, ?, ?, ?)")
+        insert(p, "");
+    }
+
+    /** @return {@code true} if inserted, {@code false} if the prefix already existed */
+    public boolean insertIfAbsent(RoutePolicy p) {
+        return insert(p, " ON CONFLICT (prefix) DO NOTHING") == 1;
+    }
+
+    private int insert(RoutePolicy p, String suffix) {
+        return jdbc.sql("INSERT INTO routes (" + COLUMNS + ") VALUES (?, ?, ?, ?, ?, ?)" + suffix)
                 .params(p.getPrefix(), p.getTargetUrl(), p.isEnabled(), p.getApiKeyHash(),
                         p.getBurstCapacity(), p.getRefillPerSecond())
                 .update();
     }
 
-    /** @return {@code true} if inserted, {@code false} if the prefix already existed */
-    public boolean insertIfAbsent(RoutePolicy p) {
-        return jdbc.sql("INSERT INTO routes (" + COLUMNS + ") VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (prefix) DO NOTHING")
-                .params(p.getPrefix(), p.getTargetUrl(), p.isEnabled(), p.getApiKeyHash(),
-                        p.getBurstCapacity(), p.getRefillPerSecond())
+    // Updates touch only the column being changed: rewriting the whole row from a (possibly
+    // stale) cached policy would silently undo concurrent changes made on another instance,
+    // e.g. bring back an API key that was just rotated or removed.
+
+    /** @return {@code true} if a row was updated */
+    public boolean updateEnabled(String prefix, boolean enabled) {
+        return jdbc.sql("UPDATE routes SET enabled = ?, updated_at = now() WHERE prefix = ?")
+                .params(enabled, prefix)
                 .update() == 1;
     }
 
     /** @return {@code true} if a row was updated */
-    public boolean update(RoutePolicy p) {
-        return jdbc.sql("""
-                        UPDATE routes SET target_url = ?, enabled = ?, api_key_hash = ?,
-                               burst_capacity = ?, refill_per_second = ?, updated_at = now()
-                        WHERE prefix = ?""")
-                .params(p.getTargetUrl(), p.isEnabled(), p.getApiKeyHash(),
-                        p.getBurstCapacity(), p.getRefillPerSecond(), p.getPrefix())
+    public boolean updateApiKeyHash(String prefix, String apiKeyHash) {
+        return jdbc.sql("UPDATE routes SET api_key_hash = ?, updated_at = now() WHERE prefix = ?")
+                .params(apiKeyHash, prefix)
                 .update() == 1;
     }
 

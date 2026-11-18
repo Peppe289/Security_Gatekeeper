@@ -1,6 +1,7 @@
 package io.github.peppe289.security_gatekeeper.admin;
 
 import io.github.peppe289.security_gatekeeper.config.GatewayProperties;
+import io.github.peppe289.security_gatekeeper.ratelimit.NanoClock;
 import io.github.peppe289.security_gatekeeper.ratelimit.RateLimiterService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,9 +19,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Brute-force protection for the admin login, built on the same token buckets
- * as the proxy: every failed login from an IP consumes a token; when the
- * bucket is empty, login attempts from that IP are redirected to
- * {@code login?blocked} until it refills. A successful login resets the bucket.
+ * as the proxy (in a separate registry): every failed login from an IP
+ * consumes a token; when the bucket is empty, login attempts from that IP are
+ * redirected to {@code login?blocked} until it refills. A successful login
+ * resets the bucket.
  */
 @Component
 public class LoginThrottle {
@@ -32,8 +34,10 @@ public class LoginThrottle {
     private final long maxFailures;
     private final long nanosPerAttempt;
 
-    public LoginThrottle(RateLimiterService rateLimiter, GatewayProperties properties) {
-        this.rateLimiter = rateLimiter;
+    public LoginThrottle(NanoClock clock, GatewayProperties properties) {
+        // A dedicated registry: sharing the proxy's one would let anyone disable this protection by
+        // filling it with proxied traffic from many addresses (new keys are refused once it is full).
+        this.rateLimiter = new RateLimiterService(clock, properties);
         this.maxFailures = properties.loginThrottle().maxFailures();
         this.nanosPerAttempt = Math.max(1, properties.loginThrottle().recovery().toNanos());
     }

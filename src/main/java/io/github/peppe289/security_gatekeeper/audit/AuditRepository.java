@@ -56,6 +56,14 @@ public class AuditRepository {
                 .optional();
     }
 
+    /** @return {@code true} if {@code record} (same sequence and hash) is stored for {@code nodeId} */
+    public boolean contains(String nodeId, AuditRecord record) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM audit_log WHERE node_id = ? AND sequence = ? AND hash = ?)")
+                .params(nodeId, record.getSequence(), record.getHash())
+                .query(Boolean.class)
+                .single();
+    }
+
     /** Inserts a batch atomically: either every record is stored or none is. */
     public void insertBatch(String nodeId, List<AuditRecord> records) {
         tx.executeWithoutResult(status -> jdbcTemplate.batchUpdate(

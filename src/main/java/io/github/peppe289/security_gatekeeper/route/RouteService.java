@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.UnaryOperator;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -65,8 +65,11 @@ public class RouteService implements SmartInitializingSingleton {
         refresh();
     }
 
-    /** Reloads all routes from the database. */
-    public void refresh() {
+    /**
+     * Reloads all routes from the database. Synchronized so that a slow periodic refresh
+     * cannot publish its older read over the snapshot taken right after an admin change.
+     */
+    public synchronized void refresh() {
         Map<String, RoutePolicy> fresh = new HashMap<>();
         for (RoutePolicy p : repository.findAll()) {
             fresh.put(p.getPrefix(), p);
@@ -99,7 +102,7 @@ public class RouteService implements SmartInitializingSingleton {
     }
 
     public RoutePolicy setEnabled(String prefix, boolean enabled) {
-        RoutePolicy updated = update(prefix, p -> p.withEnabled(enabled));
+        RoutePolicy updated = update(prefix, k -> repository.updateEnabled(k, enabled));
         log.info("Route {} {}", updated.getPrefix(), enabled ? "enabled" : "disabled");
         return updated;
     }
@@ -107,14 +110,14 @@ public class RouteService implements SmartInitializingSingleton {
     /** Generates a new API key for the route, making it protected if it was public. */
     public String rotateApiKey(String prefix) {
         String apiKey = keyGenerator.generate();
-        RoutePolicy updated = update(prefix, p -> p.withApiKeyHash(Sha256.hex(apiKey)));
+        RoutePolicy updated = update(prefix, k -> repository.updateApiKeyHash(k, Sha256.hex(apiKey)));
         log.info("API key rotated for route {}", updated.getPrefix());
         return apiKey;
     }
 
     /** Makes the route public again. */
     public RoutePolicy removeApiKey(String prefix) {
-        RoutePolicy updated = update(prefix, p -> p.withApiKeyHash(null));
+        RoutePolicy updated = update(prefix, k -> repository.updateApiKeyHash(k, null));
         log.info("API key removed from route {}", updated.getPrefix());
         return updated;
     }
@@ -128,15 +131,14 @@ public class RouteService implements SmartInitializingSingleton {
         log.info("Route deleted: {}", prefix);
     }
 
-    private RoutePolicy update(String prefix, UnaryOperator<RoutePolicy> change) {
-        RoutePolicy current = find(prefix).orElseThrow(RouteNotFoundException::new);
-        RoutePolicy updated = change.apply(current);
-        if (!repository.update(updated)) {
-            refresh(); // deleted meanwhile (possibly by another instance)
+    /** Applies {@code write} to the database row, then returns the route as now stored. */
+    private RoutePolicy update(String prefix, Predicate<String> write) {
+        boolean updated = prefix != null && write.test(prefix);
+        refresh(); // also picks up a deletion made meanwhile (possibly by another instance)
+        if (!updated) {
             throw new RouteNotFoundException();
         }
-        refresh();
-        return updated;
+        return find(prefix).orElseThrow(RouteNotFoundException::new);
     }
 
     private RoutePolicy build(String prefix, String targetUrl, boolean enabled, String keyHash,
