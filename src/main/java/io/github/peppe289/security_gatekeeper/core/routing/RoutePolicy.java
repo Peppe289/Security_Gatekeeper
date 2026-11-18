@@ -7,9 +7,9 @@ import java.util.Locale;
 
 /**
  * Immutable description of a proxied route: {@code /{prefix}/**} is
- * forwarded to {@code targetUrl}. Changes produce new instances
- * ({@link #withEnabled(boolean)}, {@link #withApiKeyHash(String)}), so a policy
- * can be shared between threads without synchronization.
+ * forwarded to {@code targetUrl}. Instances are immutable, so a policy can be
+ * shared between threads without synchronization; a change to a route is
+ * written to the database and picked up as a new instance.
  *
  * <p>The API key is never stored in clear: only its SHA-256 digest.
  */
@@ -167,46 +167,6 @@ public final class RoutePolicy {
     private static /*@ pure @*/ String stripTrailingSlash(String url) {
         int last = url.length() - 1;
         return url.charAt(last) == '/' ? url.substring(0, last) : url;
-    }
-
-    /** @return a copy with the given enabled flag */
-    /*@ public normal_behavior
-      @   ensures \result.enabled == enabled && \result.prefix == prefix && \result.apiKeyHash == apiKeyHash;
-      @*/
-    public RoutePolicy withEnabled(boolean enabled) {
-        return new RoutePolicy(this, enabled, apiKeyHash);
-    }
-
-    /** @return a copy protected by the given key digest ({@code null} makes the route public) */
-    /*@ public normal_behavior
-      @   requires apiKeyHash == null || Sha256.isHexDigest(apiKeyHash);
-      @   ensures \result.apiKeyHash == apiKeyHash && \result.prefix == prefix && \result.enabled == enabled;
-      @ also public exceptional_behavior
-      @   requires apiKeyHash != null && !Sha256.isHexDigest(apiKeyHash);
-      @   signals_only IllegalArgumentException;
-      @*/
-    public RoutePolicy withApiKeyHash(/*@ nullable @*/ String apiKeyHash) {
-        if (apiKeyHash != null && !Sha256.isHexDigest(apiKeyHash)) {
-            throw new IllegalArgumentException("apiKeyHash must be a SHA-256 hex digest");
-        }
-        return new RoutePolicy(this, enabled, apiKeyHash);
-    }
-
-    /** Copy of an already validated policy with a new enabled flag and key digest. */
-    /*@ private normal_behavior
-      @   requires source != null;
-      @   requires apiKeyHash == null || apiKeyHash.length() == Sha256.HEX_LENGTH;
-      @   ensures this.prefix == source.prefix && this.targetUrl == source.targetUrl;
-      @   ensures this.enabled == enabled && this.apiKeyHash == apiKeyHash;
-      @   ensures this.burstCapacity == source.burstCapacity && this.refillPerSecond == source.refillPerSecond;
-      @*/
-    private RoutePolicy(RoutePolicy source, boolean enabled, /*@ nullable @*/ String apiKeyHash) {
-        this.prefix = source.prefix;
-        this.targetUrl = source.targetUrl;
-        this.enabled = enabled;
-        this.apiKeyHash = apiKeyHash;
-        this.burstCapacity = source.burstCapacity;
-        this.refillPerSecond = source.refillPerSecond;
     }
 
     /** Nanoseconds between two tokens, always {@code >= 1}. */

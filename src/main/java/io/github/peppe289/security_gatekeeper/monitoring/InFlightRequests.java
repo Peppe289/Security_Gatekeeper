@@ -23,10 +23,6 @@ public class InFlightRequests {
         current.decrementAndGet();
     }
 
-    public int current() {
-        return current.get();
-    }
-
     /** @return the highest value since the previous call (short bursts between two samples are not missed) */
     int takePeak() {
         return peak.getAndSet(current.get());

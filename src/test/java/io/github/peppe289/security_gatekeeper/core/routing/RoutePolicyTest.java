@@ -2,7 +2,6 @@ package io.github.peppe289.security_gatekeeper.core.routing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,25 +55,6 @@ class RoutePolicyTest {
     }
 
     @Test
-    void withersReturnModifiedCopies() {
-        RoutePolicy p = policy("orders", URL, null, 5, 2);
-        RoutePolicy disabled = p.withEnabled(false);
-        assertNotSame(p, disabled);
-        assertTrue(p.isEnabled());
-        assertFalse(disabled.isEnabled());
-        assertEquals(5, disabled.getBurstCapacity());
-        assertEquals(2, disabled.getRefillPerSecond());
-        assertEquals(URL, disabled.getTargetUrl());
-
-        RoutePolicy keyed = disabled.withApiKeyHash(HASH);
-        assertEquals(HASH, keyed.getApiKeyHash());
-        assertFalse(keyed.isEnabled());
-        assertEquals("orders", keyed.getPrefix());
-        assertNull(keyed.withApiKeyHash(null).getApiKeyHash());
-        assertTrue(keyed.withEnabled(true).isEnabled());
-    }
-
-    @Test
     void toStringNeverLeaksKeyDigest() {
         String s = policy("orders", URL, HASH, 5, 2).toString();
         assertFalse(s.contains(HASH));
@@ -100,10 +80,6 @@ class RoutePolicyTest {
         assertThrows(IllegalArgumentException.class, () -> policy("a", "ftp://h", null, 1, 1));
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> policy("a", URL, "not-a-digest", 1, 1));
-        assertEquals("apiKeyHash must be a SHA-256 hex digest", e.getMessage());
-
-        RoutePolicy valid = policy("a", URL, null, 1, 1);
-        e = assertThrows(IllegalArgumentException.class, () -> valid.withApiKeyHash("not-a-digest"));
         assertEquals("apiKeyHash must be a SHA-256 hex digest", e.getMessage());
     }
 

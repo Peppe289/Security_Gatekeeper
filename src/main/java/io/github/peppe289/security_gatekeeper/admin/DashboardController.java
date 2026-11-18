@@ -32,7 +32,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping(ADMIN_PATH)
 public class DashboardController {
 
-    private static final String REDIRECT_HOME = "redirect:" + ADMIN_PATH + "/";
+    static final String REDIRECT_HOME = "redirect:" + ADMIN_PATH + "/";
     private static final String FLASH_SUCCESS = "success";
     private static final String FLASH_ERROR = "error";
 

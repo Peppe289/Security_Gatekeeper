@@ -73,10 +73,6 @@ public class LoadMonitor {
         this.maxSamples = (int) Math.max(1, window.toMillis() / Math.max(1, interval.toMillis()));
     }
 
-    public Duration interval() {
-        return interval;
-    }
-
     /** Takes one sample. Called every {@code sample-interval} by the scheduler. */
     public synchronized void sample() {
         Instant now = clock.instant();

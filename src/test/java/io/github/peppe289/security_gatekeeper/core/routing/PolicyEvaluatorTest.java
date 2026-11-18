@@ -14,6 +14,9 @@ class PolicyEvaluatorTest {
 
     private static final RoutePolicy PUBLIC = new RoutePolicy("pub", "http://h", true, null, 1, 1);
     private static final RoutePolicy KEYED = new RoutePolicy("sec", "http://h", true, Sha256.hex("s3cret"), 1, 1);
+    private static final RoutePolicy PUBLIC_DISABLED = new RoutePolicy("pub", "http://h", false, null, 1, 1);
+    private static final RoutePolicy KEYED_DISABLED =
+            new RoutePolicy("sec", "http://h", false, Sha256.hex("s3cret"), 1, 1);
 
     @Test
     void unknownRouteIsNotFound() {
@@ -22,8 +25,8 @@ class PolicyEvaluatorTest {
 
     @Test
     void disabledRouteIsRejected() {
-        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(PUBLIC.withEnabled(false)));
-        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(KEYED.withEnabled(false)));
+        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(PUBLIC_DISABLED));
+        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(KEYED_DISABLED));
     }
 
     @Test
@@ -52,13 +55,13 @@ class PolicyEvaluatorTest {
         assertEquals(AccessDecision.ROUTE_NOT_FOUND, PolicyEvaluator.checkExists(null));
         assertEquals(AccessDecision.ALLOW, PolicyEvaluator.checkExists(PUBLIC));
         assertEquals(AccessDecision.ALLOW, PolicyEvaluator.checkEnabled(PUBLIC));
-        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(PUBLIC.withEnabled(false)));
+        assertEquals(AccessDecision.ROUTE_DISABLED, PolicyEvaluator.checkEnabled(PUBLIC_DISABLED));
         assertEquals(AccessDecision.ALLOW, PolicyEvaluator.checkApiKey(PUBLIC, null));
         assertEquals(AccessDecision.ALLOW, PolicyEvaluator.checkApiKey(KEYED, "s3cret"));
         assertEquals(AccessDecision.API_KEY_INVALID, PolicyEvaluator.checkApiKey(KEYED, "x"));
         assertEquals(AccessDecision.API_KEY_MISSING, PolicyEvaluator.checkApiKey(KEYED, ""));
         // key check applies even to a disabled route when called on its own
-        assertEquals(AccessDecision.API_KEY_INVALID, PolicyEvaluator.checkApiKey(KEYED.withEnabled(false), "x"));
+        assertEquals(AccessDecision.API_KEY_INVALID, PolicyEvaluator.checkApiKey(KEYED_DISABLED, "x"));
     }
 
     @Test

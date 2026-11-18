@@ -3,6 +3,7 @@ package io.github.peppe289.security_gatekeeper.core.crypto;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 /**
  * SHA-256 helpers built only on the JDK. Used for the audit hash chain and for
@@ -13,7 +14,7 @@ public final class Sha256 {
     /** Length of a hex-encoded SHA-256 digest. */
     public static final int HEX_LENGTH = 64;
 
-    private static final char[] HEX = "0123456789abcdef".toCharArray();
+    private static final HexFormat HEX = HexFormat.of();
 
     private Sha256() {
     }
@@ -29,16 +30,9 @@ public final class Sha256 {
       @   ensures \result != null && \result.length() == HEX_LENGTH;
       @ pure
       @*/
-    //@ skipesc // body relies on java.security.MessageDigest, which has no usable JML specification; covered by Sha256Test
+    //@ skipesc // body relies on MessageDigest and HexFormat, which have no usable JML specification; covered by Sha256Test
     public static String hex(String input) {
-        byte[] digest = newDigest().digest(input.getBytes(StandardCharsets.UTF_8));
-        char[] out = new char[digest.length * 2];
-        for (int i = 0; i < digest.length; i++) {
-            int v = digest[i] & 0xFF;
-            out[2 * i] = HEX[v >>> 4];
-            out[2 * i + 1] = HEX[v & 0x0F];
-        }
-        return new String(out);
+        return HEX.formatHex(newDigest().digest(input.getBytes(StandardCharsets.UTF_8)));
     }
 
     /**

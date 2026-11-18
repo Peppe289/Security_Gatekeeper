@@ -18,6 +18,7 @@ public record AuditAnchor(String nodeId, long sequence, String hash, long timest
     private static final String VERSION = "v1";
     private static final String DOMAIN = "gatekeeper-audit-anchor-v1|";
     private static final int FIELDS = 7;
+    private static final String MALFORMED = "malformed anchor line";
 
     /** Creates an anchor for record {@code sequence}/{@code hash} of {@code nodeId}, signed with the active key. */
     static AuditAnchor create(String nodeId, long sequence, String hash, long timestampMillis, AuditKeys keys) {
@@ -43,12 +44,12 @@ public record AuditAnchor(String nodeId, long sequence, String hash, long timest
     static AuditAnchor parse(String line) {
         String[] f = line.split("\t", -1);
         if (f.length != FIELDS || !VERSION.equals(f[0])) {
-            throw new IllegalArgumentException("malformed anchor line");
+            throw new IllegalArgumentException(MALFORMED);
         }
         try {
             return new AuditAnchor(f[1], Long.parseLong(f[2]), f[3], Long.parseLong(f[4]), f[5], f[6]);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("malformed anchor line", e);
+            throw new IllegalArgumentException(MALFORMED, e);
         }
     }
 

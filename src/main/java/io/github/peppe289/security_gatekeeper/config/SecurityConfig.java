@@ -41,7 +41,7 @@ public class SecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
-    static final String LOGIN_PATH = ADMIN_PATH + "/login";
+    public static final String LOGIN_PATH = ADMIN_PATH + "/login";
 
     private static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
             + "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; "

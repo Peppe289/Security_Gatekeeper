@@ -111,14 +111,14 @@ public record LoadReport(Instant sampledAt, Duration interval, Duration covered,
 
     /** Sampling interval, for display (e.g. {@code 5 s}). */
     public String intervalText() {
-        return seconds(interval);
+        return duration(interval);
     }
 
     static LoadReport from(List<LoadMonitor.Sample> samples, int maxWorkers, int auditCapacity, Duration interval,
                            Duration window) {
         if (samples.isEmpty()) {
             Verdict verdict = new Verdict(Level.UNKNOWN, "Collecting data: the first sample is taken within "
-                    + seconds(interval) + ".");
+                    + duration(interval) + ".");
             return new LoadReport(null, interval, Duration.ZERO, 0, verdict, List.of(), List.of());
         }
         LoadMonitor.Sample last = samples.get(samples.size() - 1);
@@ -284,7 +284,4 @@ public record LoadReport(Instant sampledAt, Duration interval, Duration covered,
         return Math.round(s / 60.0) + " min";
     }
 
-    private static String seconds(Duration d) {
-        return Math.max(1, d.toSeconds()) + " s";
-    }
 }
