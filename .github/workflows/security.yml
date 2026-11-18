@@ -36,7 +36,7 @@ jobs:
         if: ${{ env.GITGUARDIAN_API_KEY == '' }}
         run: echo "::notice::GITGUARDIAN_API_KEY is not set, secret scanning skipped."
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: ${{ env.GITGUARDIAN_API_KEY != '' }}
         with:
           fetch-depth: 0          # scan every commit of the push / pull request
@@ -60,10 +60,10 @@ jobs:
         if: ${{ env.SNYK_TOKEN == '' }}
         run: echo "::notice::SNYK_TOKEN is not set, Snyk scans skipped."
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: ${{ env.SNYK_TOKEN != '' }}
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         if: ${{ env.SNYK_TOKEN != '' }}
         with:
           distribution: temurin
@@ -78,12 +78,12 @@ jobs:
         if: ${{ env.SNYK_TOKEN != '' }}
         run: snyk test --file=pom.xml --severity-threshold=high
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
         if: ${{ env.SNYK_TOKEN != '' }}
 
       - name: Build image
         if: ${{ env.SNYK_TOKEN != '' }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -107,12 +107,12 @@ jobs:
         if: ${{ env.SONAR_TOKEN == '' }}
         run: echo "::notice::SONAR_TOKEN is not set, SonarQube Cloud analysis skipped."
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         if: ${{ env.SONAR_TOKEN != '' }}
         with:
           fetch-depth: 0          # full history for blame and new-code detection
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         if: ${{ env.SONAR_TOKEN != '' }}
         with:
           distribution: temurin
@@ -121,7 +121,7 @@ jobs:
 
       - name: Cache SonarQube packages
         if: ${{ env.SONAR_TOKEN != '' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
