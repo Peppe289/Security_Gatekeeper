@@ -134,7 +134,7 @@ GitHub Actions workflows live in `.github/workflows`:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gate on `core`), PiTest with a blocking mutation threshold, Docker image build. On `master` it also publishes the JaCoCo and PiTest reports to GitHub Pages. |
+| `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gate on `core`), PiTest with a blocking mutation threshold, Docker image build. The JaCoCo and PiTest reports are attached to each run as artifacts. |
 | `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
 | `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
@@ -145,7 +145,6 @@ and the GitHub Actions.
 
 One-time setup on GitHub:
 
-- **Pages:** Settings › Pages › Source: *GitHub Actions* (for the published reports).
 - **Secrets** (Settings › Secrets and variables › Actions). A scanner without its token is
   skipped, not failed.
 
