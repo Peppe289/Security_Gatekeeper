@@ -1,0 +1,67 @@
+name: OpenJML
+
+# Checks the JML specifications of the pure-Java core package.
+#   - type check (-check): JML syntax and typing. Blocking.
+#   - static verification (-esc): proves the code against its specifications.
+#     Report-only until the existing specifications have been verified once;
+#     then remove `continue-on-error` to make it blocking.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/main/java/io/github/peppe289/security_gatekeeper/core/**'
+      - '.github/workflows/openjml.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'src/main/java/io/github/peppe289/security_gatekeeper/core/**'
+      - '.github/workflows/openjml.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENJML_VERSION: '21.0.29'
+  CORE_DIR: src/main/java/io/github/peppe289/security_gatekeeper/core
+
+jobs:
+  openjml:
+    name: JML specifications (core)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache OpenJML
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/openjml
+          key: openjml-${{ env.OPENJML_VERSION }}
+
+      - name: Install OpenJML
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/openjml.zip \
+            "https://github.com/OpenJML/OpenJML/releases/download/${OPENJML_VERSION}/openjml-ubuntu-24.04-${OPENJML_VERSION}.zip"
+          mkdir -p ~/openjml
+          unzip -q /tmp/openjml.zip -d ~/openjml
+
+      - name: Core sources
+        run: find "$CORE_DIR" -name '*.java' | sort | tee /tmp/core-sources.txt
+
+      - name: Type check
+        run: ~/openjml/openjml -check --release 17 @/tmp/core-sources.txt
+
+      - name: Static verification
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          ~/openjml/openjml -esc --release 17 -progress @/tmp/core-sources.txt 2>&1 | tee /tmp/esc.log
+          {
+            echo "### OpenJML static verification"
+            echo '```'
+            tail -n 60 /tmp/esc.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

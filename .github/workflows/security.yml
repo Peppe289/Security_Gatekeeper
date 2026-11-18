@@ -1,0 +1,140 @@
+name: Security
+
+# Each scanner needs a token stored in Settings > Secrets and variables > Actions.
+# A scanner whose token is missing is skipped (with a notice), not failed.
+#   GITGUARDIAN_API_KEY  https://dashboard.gitguardian.com  (API > Personal access tokens)
+#   SNYK_TOKEN           https://app.snyk.io/account
+#   SONAR_TOKEN          https://sonarcloud.io/account/security
+# Optional repository variables (Settings > Secrets and variables > Actions > Variables):
+#   SONAR_ORGANIZATION   SonarQube Cloud organization key (default: repository owner, lower-case)
+#   SONAR_PROJECT_KEY    SonarQube Cloud project key (default: <owner>_<repository>)
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 6 * * 1'   # weekly, to catch newly published vulnerabilities
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scanning (GitGuardian)
+    runs-on: ubuntu-latest
+    env:
+      GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+    steps:
+      - name: Token missing
+        if: ${{ env.GITGUARDIAN_API_KEY == '' }}
+        run: echo "::notice::GITGUARDIAN_API_KEY is not set, secret scanning skipped."
+
+      - uses: actions/checkout@v5
+        if: ${{ env.GITGUARDIAN_API_KEY != '' }}
+        with:
+          fetch-depth: 0          # scan every commit of the push / pull request
+
+      - name: ggshield
+        if: ${{ env.GITGUARDIAN_API_KEY != '' }}
+        uses: GitGuardian/ggshield-action@v1
+        env:
+          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+          GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+  dependencies:
+    name: Dependency and image scanning (Snyk)
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - name: Token missing
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "::notice::SNYK_TOKEN is not set, Snyk scans skipped."
+
+      - uses: actions/checkout@v5
+        if: ${{ env.SNYK_TOKEN != '' }}
+
+      - uses: actions/setup-java@v5
+        if: ${{ env.SNYK_TOKEN != '' }}
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - uses: snyk/actions/setup@master
+        if: ${{ env.SNYK_TOKEN != '' }}
+
+      # Maven dependencies (including transitive ones).
+      - name: Snyk open source
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: snyk test --file=pom.xml --severity-threshold=high
+
+      - uses: docker/setup-buildx-action@v3
+        if: ${{ env.SNYK_TOKEN != '' }}
+
+      - name: Build image
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: security-gatekeeper:scan
+          cache-from: type=gha
+
+      # Base image (Alpine + JRE) and the packaged application.
+      - name: Snyk container
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: snyk container test security-gatekeeper:scan --file=Dockerfile --severity-threshold=high
+
+  sonar:
+    name: Code quality (SonarQube Cloud)
+    runs-on: ubuntu-latest
+    # Pull requests from forks get no secrets: skip instead of failing.
+    if: ${{ github.event.pull_request.head.repo.fork != true }}
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Token missing
+        if: ${{ env.SONAR_TOKEN == '' }}
+        run: echo "::notice::SONAR_TOKEN is not set, SonarQube Cloud analysis skipped."
+
+      - uses: actions/checkout@v5
+        if: ${{ env.SONAR_TOKEN != '' }}
+        with:
+          fetch-depth: 0          # full history for blame and new-code detection
+
+      - uses: actions/setup-java@v5
+        if: ${{ env.SONAR_TOKEN != '' }}
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Cache SonarQube packages
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+
+      # verify produces the JaCoCo XML report that SonarQube imports as coverage.
+      - name: Build, test and analyze
+        if: ${{ env.SONAR_TOKEN != '' }}
+        env:
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION || github.repository_owner }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY || format('{0}_{1}', github.repository_owner, github.event.repository.name) }}
+        run: >
+          ./mvnw -B -ntp verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.organization="${SONAR_ORGANIZATION,,}"
+          -Dsonar.projectKey="${SONAR_PROJECT_KEY}"
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml

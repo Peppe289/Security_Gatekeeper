@@ -103,6 +103,38 @@ Package layout:
 | `admin` | admin panel and login throttling |
 | `config` | configuration properties, security, shared beans |
 
+## Continuous integration
+
+GitHub Actions workflows live in `.github/workflows`:
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gate on `core`), PiTest with a blocking mutation threshold, Docker image build. On `master` it also publishes the JaCoCo and PiTest reports to GitHub Pages. |
+| `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
+| `openjml.yml` | changes to `core` | OpenJML type check of the JML specifications (blocking) and static verification (report-only for now). |
+| `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
+| `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
+
+Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven, the Docker base images
+and the GitHub Actions.
+
+One-time setup on GitHub:
+
+- **Pages:** Settings › Pages › Source: *GitHub Actions* (for the published reports).
+- **Secrets** (Settings › Secrets and variables › Actions). A scanner without its token is
+  skipped, not failed.
+
+  | Secret | Where to get it |
+  |---|---|
+  | `GITGUARDIAN_API_KEY` | GitGuardian dashboard › API › Personal access tokens |
+  | `SNYK_TOKEN` | Snyk › Account settings › Auth token |
+  | `SONAR_TOKEN` | SonarQube Cloud › My account › Security |
+
+- **SonarQube Cloud:** import the repository there first. If the organization or project
+  key differs from the defaults (`<owner>` and `<owner>_<repository>`), set the repository
+  variables `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY`. Turn off *Automatic Analysis*
+  in the project settings, since the analysis runs from CI.
+
 ## Current limitations
 
 - One upstream per route: no load balancing or upstream health checks.

@@ -1,0 +1,52 @@
+name: Benchmark
+
+# Manual only: shared runners have noisy timings, so results are indicative.
+
+on:
+  workflow_dispatch:
+    inputs:
+      jmh-args:
+        description: 'JMH arguments (benchmark regex, forks, iterations)'
+        required: false
+        default: '-f 1 -wi 3 -i 5'
+
+permissions:
+  contents: read
+
+jobs:
+  jmh:
+    name: JMH benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run benchmarks
+        env:
+          JMH_ARGS: ${{ inputs.jmh-args }}
+        run: ./mvnw -B -ntp -Pbenchmark -DskipTests verify "-Djmh.args=${JMH_ARGS} -rf json -rff target/jmh-result.json"
+
+      - name: Results summary
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, math
+          def num(v):
+              v = float(v)   # JMH writes "NaN" (a string) when the error cannot be computed
+              return "n/a" if math.isnan(v) else f"{v:.3f}"
+          print("### JMH results\n")
+          print("| Benchmark | Mode | Score | Error | Unit |\n|---|---|---|---|---|")
+          for r in json.load(open('target/jmh-result.json')):
+              m = r['primaryMetric']
+              print(f"| `{'.'.join(r['benchmark'].rsplit('.', 2)[-2:])}` | {r['mode']} "
+                    f"| {num(m['score'])} | ± {num(m['scoreError'])} | {m['scoreUnit']} |")
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jmh-result
+          path: target/jmh-result.json
