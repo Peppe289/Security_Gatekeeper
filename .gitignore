@@ -35,5 +35,9 @@ build/
 ### Local secrets ###
 .env
 
-### Claude Code (local MCP configuration) ###
+### Claude Code (local configuration) ###
 .mcp.json
+.claude/
+
+### macOS ###
+.DS_Store

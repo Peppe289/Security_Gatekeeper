@@ -4,3 +4,8 @@ target/
 *.iml
 .env
 .git
+.github/
+docs/
+.mcp.json
+.claude/
+.DS_Store
