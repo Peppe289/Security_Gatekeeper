@@ -54,7 +54,9 @@ Rejections are returned as `application/problem+json` (RFC 9457).
   the hash chain and writes to the database in batches, so auditing never slows down
   proxied traffic. Each instance (`gateway.node-id`) writes its own chain. The database
   rejects `UPDATE`s through a trigger. Verification from the admin panel recomputes the
-  whole chain, so it also detects changes made by someone who bypassed the trigger.
+  whole chain, so it detects records that were modified, inserted, removed or reordered
+  without recomputing the hashes that follow, even if the trigger was bypassed. See
+  *Current limitations* for what it cannot detect.
 - **Admin panel.** It has login brute-force protection, CSRF tokens and a strict
   Content-Security-Policy. Statistics are cached and recomputed at most every
   `gateway.dashboard.stats-refresh` (5 s by default). Nothing updates in real time.
@@ -140,3 +142,7 @@ One-time setup on GitHub:
 - One upstream per route: no load balancing or upstream health checks.
 - No WebSocket or other protocol upgrades: plain HTTP requests only.
 - Rate limits and statistics are per instance, not shared across nodes.
+- The audit chain uses no secret, and its head is not recorded outside the database.
+  Someone with write access to the database can therefore rewrite a record and recompute
+  every following hash, or delete the latest records of a chain (or a whole chain),
+  without verification noticing. Removing the oldest records looks the same as retention.
