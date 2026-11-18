@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Sign in')}"></head>
+<body class="center">
+<main class="card login-card">
+    <h1 class="login-title">
+        <img th:src="@{/_gatekeeper/assets/favicon.svg}" alt="" width="28" height="28">
+        Security Gatekeeper
+    </h1>
+    <p class="muted">Sign in to the admin panel.</p>
+
+    <div class="alert alert-error" th:if="${param.error}">Invalid credentials.</div>
+    <div class="alert alert-error" th:if="${param.blocked}">Too many failed attempts. Try again later.</div>
+    <div class="alert alert-success" th:if="${param.logout}">Signed out.</div>
+
+    <form th:action="@{/_gatekeeper/login}" method="post" class="stack">
+        <label>Username
+            <input type="text" name="username" autocomplete="username" required autofocus>
+        </label>
+        <label>Password
+            <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+    </form>
+</main>
+</body>
+</html>

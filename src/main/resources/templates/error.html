@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Error')}"></head>
+<body class="center">
+<main class="card login-card">
+    <h1 th:text="${status} ?: 'Error'">500</h1>
+    <p class="muted" th:text="${error} ?: 'Something went wrong.'">Error</p>
+    <a class="btn btn-primary" th:href="@{/_gatekeeper/}">Back to the panel</a>
+</main>
+</body>
+</html>

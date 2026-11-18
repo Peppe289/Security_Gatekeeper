@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="same-origin">
+    <title th:text="${title} + ' · Security Gatekeeper'">Security Gatekeeper</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/_gatekeeper/assets/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/_gatekeeper/assets/css/app.css}">
+    <script th:src="@{/_gatekeeper/assets/js/app.js}" defer></script>
+</head>
+<body>
+<header th:fragment="topbar" class="topbar">
+    <a class="brand" th:href="@{/_gatekeeper/}">
+        <img th:src="@{/_gatekeeper/assets/favicon.svg}" alt="" width="22" height="22">
+        Security Gatekeeper
+    </a>
+    <div class="topbar-right">
+        <span class="muted">node <code th:text="${nodeId}">node-1</code></span>
+        <span class="muted" th:text="${username}">admin</span>
+        <form th:action="@{/_gatekeeper/logout}" method="post">
+            <button type="submit" class="btn btn-ghost">Sign out</button>
+        </form>
+    </div>
+</header>
+</body>
+</html>

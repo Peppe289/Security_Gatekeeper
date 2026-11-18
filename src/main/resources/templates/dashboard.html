@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Dashboard')}"></head>
+<body>
+<header th:replace="~{fragments :: topbar}"></header>
+
+<main class="container" th:with="s=${snapshot.stats}">
+
+    <!-- Feedback ------------------------------------------------------------------------------>
+    <div class="alert alert-success" th:if="${success}" th:text="${success}">ok</div>
+    <div class="alert alert-error" th:if="${error}" th:text="${error}">error</div>
+
+    <section class="card key-card" th:if="${newApiKey}">
+        <h2>API key for <code th:text="'/' + ${newApiKeyRoute}">/route</code></h2>
+        <p>Copy it now: <strong>it will not be shown again</strong> (the gateway only stores its SHA-256 hash).
+            Clients send it in the <code th:text="${apiKeyHeader}">X-Api-Key</code> header.</p>
+        <div class="key-row">
+            <code id="new-api-key" class="key" th:text="${newApiKey}">gk_...</code>
+            <button type="button" class="btn" data-copy="#new-api-key">Copy</button>
+        </div>
+    </section>
+
+    <!-- Statistics (cached server-side) --------------------------------------------------------->
+    <section>
+        <div class="section-head">
+            <h2>Overview</h2>
+            <span class="muted small">
+                Node statistics as of
+                <time th:datetime="${snapshot.generatedAt}" th:text="${snapshot.generatedAt}" data-local>now</time>
+                <span th:text="'(recomputed at most every ' + ${statsRefreshSeconds} + ' s)'">(recomputed at most every 5 s)</span> ·
+                <a th:href="@{/_gatekeeper/}">Refresh</a>
+            </span>
+        </div>
+        <div class="tiles">
+            <div class="tile">
+                <span class="tile-label">Active routes</span>
+                <span class="tile-value"
+                      th:text="${#lists.size(routes.?[enabled])} + ' / ' + ${#lists.size(routes)}">0 / 0</span>
+            </div>
+            <div class="tile">
+                <span class="tile-label">Requests</span>
+                <span class="tile-value" th:text="${s.totalRequests}">0</span>
+            </div>
+            <div class="tile tile-ok">
+                <span class="tile-label">Forwarded</span>
+                <span class="tile-value" th:text="${s.byDecision['ALLOW']}">0</span>
+            </div>
+            <div class="tile tile-warn">
+                <span class="tile-label">Blocked</span>
+                <span class="tile-value"
+                      th:text="${s.totalRequests - s.byDecision['ALLOW'] - s.byDecision['FORWARD_FAILED']}">0</span>
+            </div>
+            <div class="tile tile-warn">
+                <span class="tile-label">Rate limited</span>
+                <span class="tile-value" th:text="${s.byDecision['RATE_LIMITED']}">0</span>
+            </div>
+            <div class="tile tile-bad">
+                <span class="tile-label">Upstream errors</span>
+                <span class="tile-value" th:text="${s.byDecision['FORWARD_FAILED']}">0</span>
+            </div>
+            <div class="tile">
+                <span class="tile-label">Tracked clients</span>
+                <span class="tile-value" th:text="${snapshot.trackedClients}">0</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Routes ---------------------------------------------------------------------------------->
+    <section class="card">
+        <div class="section-head">
+            <h2>Routes</h2>
+            <span class="muted small"><code>https://&lt;domain&gt;/&lt;prefix&gt;/…</code> → <code>&lt;target&gt;/…</code></span>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Prefix</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                    <th>Access</th>
+                    <th>Limit</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(routes)}">
+                    <td colspan="6" class="muted empty">No routes yet. Add one below.</td>
+                </tr>
+                <tr th:each="r : ${routes}">
+                    <td><a th:href="@{'/' + ${r.prefix} + '/'}" target="_blank" rel="noopener noreferrer"
+                           th:text="'/' + ${r.prefix}">/prefix</a></td>
+                    <td><code class="wrap" th:text="${r.targetUrl}">http://...</code></td>
+                    <td>
+                        <span class="badge badge-ok" th:if="${r.enabled}">enabled</span>
+                        <span class="badge badge-off" th:unless="${r.enabled}">disabled</span>
+                    </td>
+                    <td>
+                        <span class="badge badge-key" th:if="${r.requiresApiKey()}">API key</span>
+                        <span class="badge" th:unless="${r.requiresApiKey()}">public</span>
+                    </td>
+                    <td class="small" th:text="${r.burstCapacity} + ' burst · ' + ${r.refillPerSecond} + '/s'">100 · 50/s</td>
+                    <td class="actions">
+                        <form th:action="@{'/_gatekeeper/routes/' + ${r.prefix} + '/enabled'}" method="post">
+                            <input type="hidden" name="enabled" th:value="${!r.enabled}">
+                            <button type="submit" class="btn btn-small"
+                                    th:text="${r.enabled} ? 'Disable' : 'Enable'">Disable</button>
+                        </form>
+                        <form th:action="@{'/_gatekeeper/routes/' + ${r.prefix} + '/api-key'}" method="post">
+                            <button type="submit" class="btn btn-small"
+                                    th:attr="data-confirm=${r.requiresApiKey()} ? 'Generate a new API key? The current one will stop working.' : null"
+                                    th:text="${r.requiresApiKey()} ? 'New key' : 'Protect'">Protect</button>
+                        </form>
+                        <form th:if="${r.requiresApiKey()}"
+                              th:action="@{'/_gatekeeper/routes/' + ${r.prefix} + '/api-key/delete'}" method="post">
+                            <button type="submit" class="btn btn-small"
+                                    data-confirm="Make this route public? Anyone will be able to reach it.">Make public</button>
+                        </form>
+                        <form th:action="@{'/_gatekeeper/routes/' + ${r.prefix} + '/delete'}" method="post">
+                            <button type="submit" class="btn btn-small btn-danger"
+                                    th:attr="data-confirm='Delete route /' + ${r.prefix} + '?'">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Add route</h3>
+        <form th:action="@{/_gatekeeper/routes}" th:object="${routeForm}" method="post" class="route-form">
+            <label>Prefix
+                <span class="input-prefix"><span>/</span>
+                    <input type="text" th:field="*{prefix}" placeholder="myservice" required maxlength="63"
+                           pattern="[a-z0-9][a-z0-9\-]{0,62}" autocomplete="off">
+                </span>
+            </label>
+            <label class="grow">Target URL
+                <input type="url" th:field="*{targetUrl}" placeholder="http://localhost:8080" required maxlength="2048">
+            </label>
+            <label>Burst
+                <input type="number" th:field="*{burstCapacity}" min="1" max="1000000" placeholder="default">
+            </label>
+            <label>Requests/s
+                <input type="number" th:field="*{refillPerSecond}" min="1" max="1000000000" placeholder="default">
+            </label>
+            <label class="check"><input type="checkbox" th:field="*{enabled}"> Enabled</label>
+            <label class="check"><input type="checkbox" th:field="*{requireApiKey}"> Require API key</label>
+            <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+    </section>
+
+    <!-- Audit ----------------------------------------------------------------------------------->
+    <section class="card">
+        <div class="section-head">
+            <h2>Audit log</h2>
+            <form th:action="@{/_gatekeeper/audit/verify}" method="post" class="inline">
+                <button type="submit" class="btn">Verify integrity</button>
+            </form>
+        </div>
+
+        <p class="small" th:if="${integrity == null}">
+            <span class="badge">not verified</span>
+            <span th:text="'Verification recomputes the whole SHA-256 chain from the database (at most once every ' + ${verifyCooldownSeconds} + ' s).'">Verification recomputes the whole SHA-256 chain from the database.</span>
+        </p>
+        <p class="small" th:if="${integrity != null}">
+            <span class="badge badge-ok" th:if="${integrity.valid}">intact</span>
+            <span class="badge badge-bad" th:unless="${integrity.valid}">tampered</span>
+            <span th:text="${integrity.checkedRecords} + ' records across ' + ${integrity.nodes} + ' node(s), verified at '">…</span>
+            <time th:datetime="${integrity.verifiedAt}" th:text="${integrity.verifiedAt}" data-local>…</time>
+            <span th:unless="${integrity.valid}"
+                  th:text="' — first invalid record: node ' + ${integrity.brokenNode} + ' #' + ${integrity.firstInvalidSequence}">…</span>
+        </p>
+
+        <p class="small muted">
+            Persisted by this node: <span th:text="${s.persisted}">0</span> ·
+            queued: <span th:text="${s.queued}">0</span> ·
+            dropped (queue full): <span th:text="${s.dropped}">0</span>
+        </p>
+
+        <div class="table-wrap">
+            <table class="audit">
+                <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Node · #</th>
+                    <th>Client</th>
+                    <th>Request</th>
+                    <th>Outcome</th>
+                    <th>Hash</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(snapshot.recent)}">
+                    <td colspan="6" class="muted empty">No requests recorded yet.</td>
+                </tr>
+                <tr th:each="e : ${snapshot.recent}" th:with="a=${e.record}">
+                    <td><time th:datetime="${e.timestamp}" th:text="${e.timestamp}" data-local>…</time></td>
+                    <td class="small"><span th:text="${e.nodeId}">node</span> · <span th:text="${a.sequence}">0</span></td>
+                    <td><code th:text="${a.clientIp}">ip</code></td>
+                    <td class="wrap"><strong th:text="${a.method}">GET</strong> <code th:text="${a.path}">/</code></td>
+                    <td>
+                        <span class="badge"
+                              th:classappend="${a.decision == 'ALLOW'} ? 'badge-ok' : (${a.decision == 'FORWARD_FAILED'} ? 'badge-bad' : 'badge-warn')"
+                              th:text="${a.httpStatus} + ' ' + ${a.decision}">200 ALLOW</span>
+                    </td>
+                    <td><code class="small" th:title="${a.hash}" th:text="${#strings.substring(a.hash, 0, 12)} + '…'">abc…</code></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>
