@@ -13,10 +13,15 @@ services:
       DATABASE_USERNAME: gatekeeper
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       GATEWAY_ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD:?set GATEWAY_ADMIN_PASSWORD in .env}
+      GATEWAY_AUDIT_HMAC_KEY: ${GATEWAY_AUDIT_HMAC_KEY:?set GATEWAY_AUDIT_HMAC_KEY in .env}
+      # Kept outside the database. In production, prefer storage the database host cannot write to.
+      GATEWAY_AUDIT_ANCHOR_DIR: /var/lib/gatekeeper/anchors
       GATEWAY_NODEID: gatekeeper-1
       # Inserted once at first start; afterwards routes are managed from the panel.
       GATEWAY_ROUTES_SEED_0_PREFIX: whoami
       GATEWAY_ROUTES_SEED_0_TARGETURL: http://whoami:80
+    volumes:
+      - audit-anchors:/var/lib/gatekeeper/anchors
     depends_on:
       db:
         condition: service_healthy
@@ -44,3 +49,4 @@ services:
 
 volumes:
   db-data:
+  audit-anchors:

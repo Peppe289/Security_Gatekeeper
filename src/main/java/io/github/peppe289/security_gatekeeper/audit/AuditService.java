@@ -1,10 +1,11 @@
 package io.github.peppe289.security_gatekeeper.audit;
 
+import io.github.peppe289.security_gatekeeper.audit.AuditRepository.SignedRecord;
 import io.github.peppe289.security_gatekeeper.config.GatewayProperties;
 import io.github.peppe289.security_gatekeeper.core.audit.AuditChain;
-import io.github.peppe289.security_gatekeeper.core.audit.AuditChainVerifier;
 import io.github.peppe289.security_gatekeeper.core.audit.AuditRecord;
 import io.github.peppe289.security_gatekeeper.core.routing.AccessDecision;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +36,11 @@ import org.springframework.stereotype.Service;
  * backoff; after a sequence collision the chain is resumed from the stored
  * head. If the queue overflows, new events are dropped and counted rather
  * than slowing down proxied traffic.
+ *
+ * <p>Every record is signed with an {@link AuditKeys audit key}, and at most
+ * once per {@code gateway.audit.anchor-interval} the writer stores a signed
+ * {@link AuditAnchor} of the chain head outside the database, so that
+ * verification also detects records deleted from the end of a chain.
  */
 @Service
 public class AuditService implements SmartLifecycle {
@@ -48,10 +55,13 @@ public class AuditService implements SmartLifecycle {
     private static final Duration MAX_RETRY_BACKOFF = Duration.ofSeconds(30);
 
     private final AuditRepository repository;
+    private final AuditKeys keys;
+    private final AuditAnchorStore anchors;
     private final Clock clock;
     private final String nodeId;
     private final int batchSize;
     private final Duration flushInterval;
+    private final Duration anchorInterval;
     private final BlockingQueue<AuditEvent> queue;
 
     private final Map<AccessDecision, LongAdder> counters;
@@ -60,7 +70,11 @@ public class AuditService implements SmartLifecycle {
 
     private volatile boolean running;
     private volatile Thread writer;
-    private AuditChain chain; // owned by the writer thread
+    // owned by the writer thread
+    private AuditChain chain;
+    private AuditRecord lastPersisted;
+    private long lastAnchoredSequence = -1;
+    private Instant nextAnchorAt = Instant.MIN;
 
     /** What the request thread records: no hash yet. */
     record AuditEvent(long timestampMillis, String clientIp, String method, String path,
@@ -74,19 +88,25 @@ public class AuditService implements SmartLifecycle {
     /**
      * Result of verifying every node's chain.
      *
-     * @param brokenNode node whose chain is broken, or {@code null}
+     * @param brokenNode           node whose chain is broken, or {@code null}
      * @param firstInvalidSequence first invalid record in {@code brokenNode}, or {@code -1}
+     * @param problem              why verification failed, or {@code null} if valid
+     * @param anchors              anchors read from outside the database and checked
      */
     public record IntegrityReport(boolean valid, long checkedRecords, int nodes, String brokenNode,
-                                  long firstInvalidSequence, Instant verifiedAt) {
+                                  long firstInvalidSequence, String problem, int anchors, Instant verifiedAt) {
     }
 
-    public AuditService(AuditRepository repository, Clock clock, GatewayProperties properties) {
+    public AuditService(AuditRepository repository, AuditKeys keys, AuditAnchorStore anchors, Clock clock,
+                        GatewayProperties properties) {
         this.repository = repository;
+        this.keys = keys;
+        this.anchors = anchors;
         this.clock = clock;
         this.nodeId = properties.nodeId();
         this.batchSize = properties.audit().batchSize();
         this.flushInterval = properties.audit().flushInterval();
+        this.anchorInterval = properties.audit().anchorInterval();
         this.queue = new ArrayBlockingQueue<>(properties.audit().queueCapacity());
         Map<AccessDecision, LongAdder> map = new EnumMap<>(AccessDecision.class);
         for (AccessDecision d : AccessDecision.values()) {
@@ -111,33 +131,47 @@ public class AuditService implements SmartLifecycle {
         return repository.findLatest(Math.max(0, limit));
     }
 
-    /** Verifies every node's chain from the database. Expensive: callers should rate-limit it. */
+    /**
+     * Verifies every node's chain from the database, against the anchors kept
+     * outside it. Expensive: callers should rate-limit it.
+     */
     public IntegrityReport verifyAll() {
+        Map<String, List<AuditAnchor>> anchorsByNode;
+        try {
+            anchorsByNode = anchors.loadAll();
+        } catch (IOException e) {
+            log.error("Audit anchors cannot be read: {}", e.toString());
+            return new IntegrityReport(false, 0, 0, null, -1, "anchors cannot be read: " + e.getMessage(), 0,
+                    clock.instant());
+        }
+        // A node with anchors but no rows left is checked too: its whole chain was deleted.
+        TreeSet<String> nodes = new TreeSet<>(repository.findNodeIds());
+        nodes.addAll(anchorsByNode.keySet());
         long checked = 0;
-        List<String> nodes = repository.findNodeIds();
+        int anchorCount = 0;
         for (String node : nodes) {
-            AuditChainVerifier verifier = verifyNode(node);
-            checked += verifier.checkedCount();
-            if (!verifier.isValid()) {
-                log.error("Audit chain of node {} is broken at sequence {}", node, verifier.firstInvalidSequence());
-                return new IntegrityReport(false, checked, nodes.size(), node, verifier.firstInvalidSequence(),
-                        clock.instant());
+            NodeVerifier.Result result = verifyNode(node, anchorsByNode.getOrDefault(node, List.of()));
+            checked += result.checkedRecords();
+            anchorCount += result.anchors();
+            if (!result.valid()) {
+                log.error("Audit chain of node {} is broken at sequence {}: {}", node,
+                        result.firstInvalidSequence(), result.problem());
+                return new IntegrityReport(false, checked, nodes.size(), node, result.firstInvalidSequence(),
+                        result.problem(), anchorCount, clock.instant());
             }
         }
-        return new IntegrityReport(true, checked, nodes.size(), null, -1, clock.instant());
+        return new IntegrityReport(true, checked, nodes.size(), null, -1, null, anchorCount, clock.instant());
     }
 
-    AuditChainVerifier verifyNode(String node) {
-        AuditChainVerifier[] holder = new AuditChainVerifier[1];
-        repository.streamChain(node, rec -> {
-            if (holder[0] == null) {
-                // The first retained row anchors the verification: GENESIS for a complete chain,
-                // or its own previous hash if older rows were purged by a retention policy.
-                holder[0] = new AuditChainVerifier(rec.getSequence() == 0 ? AuditChain.GENESIS_HASH : rec.getPreviousHash());
-            }
-            return holder[0].accept(rec);
-        });
-        return holder[0] == null ? new AuditChainVerifier(AuditChain.GENESIS_HASH) : holder[0];
+    /** Verifies one node's chain against its anchors in the anchor directory. */
+    NodeVerifier.Result verifyNode(String node) throws IOException {
+        return verifyNode(node, anchors.loadAll().getOrDefault(node, List.of()));
+    }
+
+    private NodeVerifier.Result verifyNode(String node, List<AuditAnchor> nodeAnchors) {
+        NodeVerifier verifier = new NodeVerifier(node, keys, nodeAnchors);
+        repository.streamChain(node, verifier::accept);
+        return verifier.finish();
     }
 
     public AuditStats stats() {
@@ -158,7 +192,18 @@ public class AuditService implements SmartLifecycle {
         chain = repository.findHead(nodeId)
                 .map(h -> new AuditChain(h.lastSequence() + 1, h.lastHash()))
                 .orElseGet(AuditChain::new);
-        log.info("Audit chain for node '{}' resumed at sequence {}", nodeId, chain.nextSequence());
+        log.info("Audit chain for node '{}' resumed at sequence {} (signing key {})", nodeId,
+                chain.nextSequence(), keys.activeKeyId());
+        if (anchors.isPersistent()) {
+            try {
+                anchors.init();
+            } catch (IOException e) {
+                log.error("Audit anchor directory cannot be created: {}", e.toString());
+            }
+        } else {
+            log.warn("gateway.audit.anchor-dir is not set: audit anchors are written to the log only, so "
+                    + "verification cannot detect records deleted from the end of a chain");
+        }
         running = true;
         Thread t = new Thread(this::writeLoop, "audit-writer");
         t.setDaemon(true);
@@ -198,33 +243,35 @@ public class AuditService implements SmartLifecycle {
             try {
                 if (queue.drainTo(events, batchSize) == 0) {
                     AuditEvent first = queue.poll(flushInterval.toMillis(), TimeUnit.MILLISECONDS);
-                    if (first == null) {
-                        continue;
+                    if (first != null) {
+                        events.add(first);
+                        queue.drainTo(events, batchSize - 1);
                     }
-                    events.add(first);
-                    queue.drainTo(events, batchSize - 1);
                 }
             } catch (InterruptedException e) {
-                // shutdown requested: loop condition drains what is left
-                continue;
+                // shutdown requested: the loop condition drains what is left
             }
-            persist(events);
-            events.clear();
+            if (!events.isEmpty()) {
+                persist(events);
+                events.clear();
+            }
+            anchorIfDue(false);
         }
+        anchorIfDue(true);
         log.info("Audit writer stopped; chain head at sequence {}", chain.nextSequence());
     }
 
     private void persist(List<AuditEvent> events) {
-        List<AuditRecord> records = appendToChain(events);
+        List<SignedRecord> records = appendToChain(events);
         Duration backoff = INITIAL_RETRY_BACKOFF;
         boolean collided = false;
         while (true) {
             try {
                 if (collided) {
-                    if (repository.contains(nodeId, records.get(records.size() - 1))) {
+                    if (repository.contains(nodeId, records.get(records.size() - 1).record())) {
                         // A previous attempt was committed but reported as failed (e.g. connection lost on commit).
                         log.warn("Audit batch of {} records had already been persisted", records.size());
-                        persisted.add(records.size());
+                        markPersisted(records);
                         return;
                     }
                     // Someone else extended this node's chain: continue from the stored head.
@@ -235,7 +282,7 @@ public class AuditService implements SmartLifecycle {
                     collided = false;
                 }
                 repository.insertBatch(nodeId, records);
-                persisted.add(records.size());
+                markPersisted(records);
                 return;
             } catch (DuplicateKeyException ex) {
                 log.error("Audit sequence collision for node '{}': is another instance running with the same "
@@ -256,13 +303,41 @@ public class AuditService implements SmartLifecycle {
         }
     }
 
-    private List<AuditRecord> appendToChain(List<AuditEvent> events) {
-        List<AuditRecord> records = new ArrayList<>(events.size());
+    private List<SignedRecord> appendToChain(List<AuditEvent> events) {
+        List<SignedRecord> records = new ArrayList<>(events.size());
         for (AuditEvent e : events) {
-            records.add(chain.append(e.timestampMillis(), e.clientIp(), e.method(), e.path(), e.routePrefix(),
-                    e.decision().name(), e.httpStatus()));
+            AuditRecord rec = chain.append(e.timestampMillis(), e.clientIp(), e.method(), e.path(), e.routePrefix(),
+                    e.decision().name(), e.httpStatus());
+            AuditKeys.Signature signature = keys.sign(AuditKeys.recordMessage(nodeId, rec));
+            records.add(new SignedRecord(rec, signature.keyId(), signature.mac()));
         }
         return records;
+    }
+
+    private void markPersisted(List<SignedRecord> records) {
+        persisted.add(records.size());
+        lastPersisted = records.get(records.size() - 1).record();
+    }
+
+    /**
+     * Anchors the last persisted record if the chain advanced since the previous anchor and
+     * {@code anchorInterval} elapsed (or {@code force}, on shutdown). Only persisted records are
+     * anchored, so an anchor never refers to a record that is not in the database.
+     */
+    private void anchorIfDue(boolean force) {
+        AuditRecord head = lastPersisted;
+        Instant now = clock.instant();
+        if (head == null || head.getSequence() <= lastAnchoredSequence || (!force && now.isBefore(nextAnchorAt))) {
+            return;
+        }
+        nextAnchorAt = now.plus(anchorInterval);
+        try {
+            anchors.append(AuditAnchor.create(nodeId, head.getSequence(), head.getHash(), now.toEpochMilli(), keys));
+            lastAnchoredSequence = head.getSequence();
+        } catch (IOException | RuntimeException e) {
+            log.error("Audit anchor for sequence {} not written ({}); retrying in {}", head.getSequence(),
+                    e.toString(), anchorInterval);
+        }
     }
 
     private boolean sleep(Duration d) {

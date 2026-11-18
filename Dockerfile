@@ -11,7 +11,8 @@ RUN ./mvnw -B -q -DskipTests package \
 
 # ---- runtime -----------------------------------------------------------------------
 FROM eclipse-temurin:17-jre-alpine
-RUN addgroup -S gatekeeper && adduser -S -G gatekeeper -H gatekeeper
+RUN addgroup -S gatekeeper && adduser -S -G gatekeeper -H gatekeeper \
+ && mkdir -p /var/lib/gatekeeper/anchors && chown -R gatekeeper:gatekeeper /var/lib/gatekeeper
 WORKDIR /app
 # Layered copy: dependencies change rarely, so rebuilding after a code change is fast.
 COPY --from=build /workspace/extracted/dependencies/ ./

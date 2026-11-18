@@ -19,6 +19,9 @@ import org.springframework.context.annotation.Import;
         "gateway.node-id=test-node",
         "gateway.admin.password=" + IntegrationTest.ADMIN_PASSWORD,
         "gateway.audit.flush-interval=20ms",
+        "gateway.audit.hmac-key=" + IntegrationTest.AUDIT_HMAC_KEY,
+        "gateway.audit.anchor-dir=target/test-anchors/${random.uuid}",
+        "gateway.audit.anchor-interval=50ms",
         "gateway.dashboard.verify-cooldown=0s",
         "gateway.login-throttle.max-failures=3",
         "gateway.login-throttle.recovery=1h",
@@ -29,4 +32,5 @@ import org.springframework.context.annotation.Import;
 public @interface IntegrationTest {
 
     String ADMIN_PASSWORD = "test-admin-password";
+    String AUDIT_HMAC_KEY = "test-audit-hmac-key-0123456789abcdef";
 }

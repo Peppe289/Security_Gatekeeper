@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -91,14 +92,42 @@ public record GatewayProperties(
      * Audit events are queued in memory and written to the database in
      * batches by a background thread, so the request path never waits for I/O.
      *
-     * @param queueCapacity events buffered before new ones are dropped (and counted)
-     * @param batchSize     maximum rows per INSERT batch
-     * @param flushInterval maximum time an event waits before being written
+     * @param queueCapacity    events buffered before new ones are dropped (and counted)
+     * @param batchSize        maximum rows per INSERT batch
+     * @param flushInterval    maximum time an event waits before being written
+     * @param hmacKey          secret (at least 32 characters) used to authenticate every record
+     *                         and anchor; required, and never stored in the database
+     * @param previousHmacKeys retired keys, still accepted when verifying older records
+     * @param anchorDir        directory, outside the database, where signed chain heads are
+     *                         appended; if empty, anchors are only written to the log
+     * @param anchorInterval   minimum time between two anchors of this node's chain
      */
     public record Audit(
             @DefaultValue("50000") @Min(1) int queueCapacity,
             @DefaultValue("500") @Min(1) @Max(10_000) int batchSize,
-            @DefaultValue("500ms") @NotNull Duration flushInterval) {
+            @DefaultValue("500ms") @NotNull Duration flushInterval,
+            @NotBlank @Size(min = 32) String hmacKey,
+            List<@NotBlank @Size(min = 32) String> previousHmacKeys,
+            String anchorDir,
+            @DefaultValue("60s") @NotNull Duration anchorInterval) {
+
+        public Audit {
+            previousHmacKeys = previousHmacKeys == null ? List.of() : List.copyOf(previousHmacKeys);
+            anchorDir = anchorDir == null || anchorDir.isBlank() ? null : anchorDir;
+        }
+
+        /** @return {@code true} if anchors are also written to {@link #anchorDir()} */
+        public boolean persistentAnchors() {
+            return anchorDir != null;
+        }
+
+        @Override
+        public String toString() {
+            // The keys are deliberately omitted.
+            return "Audit[queueCapacity=" + queueCapacity + ", batchSize=" + batchSize + ", flushInterval="
+                    + flushInterval + ", previousHmacKeys=" + previousHmacKeys.size() + ", anchorDir=" + anchorDir
+                    + ", anchorInterval=" + anchorInterval + "]";
+        }
     }
 
     /**

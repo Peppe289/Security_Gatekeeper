@@ -41,6 +41,7 @@ public class DashboardController {
     private final String nodeId;
     private final long statsRefreshSeconds;
     private final long verifyCooldownSeconds;
+    private final boolean persistentAnchors;
 
     public DashboardController(RouteService routes, DashboardService dashboard, GatewayProperties properties) {
         this.routes = routes;
@@ -49,6 +50,7 @@ public class DashboardController {
         this.nodeId = properties.nodeId();
         this.statsRefreshSeconds = properties.dashboard().statsRefresh().toSeconds();
         this.verifyCooldownSeconds = properties.dashboard().verifyCooldown().toSeconds();
+        this.persistentAnchors = properties.audit().persistentAnchors();
     }
 
     @GetMapping
@@ -66,6 +68,7 @@ public class DashboardController {
         model.addAttribute("apiKeyHeader", apiKeyHeader);
         model.addAttribute("statsRefreshSeconds", statsRefreshSeconds);
         model.addAttribute("verifyCooldownSeconds", verifyCooldownSeconds);
+        model.addAttribute("persistentAnchors", persistentAnchors);
         if (!model.containsAttribute("routeForm")) {
             model.addAttribute("routeForm", RouteForm.withDefaults());
         }
@@ -131,10 +134,12 @@ public class DashboardController {
                     + Math.max(1, result.retryIn().toSeconds()) + " s.");
         } else if (result.report().valid()) {
             redirect.addFlashAttribute(FLASH_SUCCESS, "Audit chain intact: " + result.report().checkedRecords()
-                    + " records verified.");
+                    + " records and " + result.report().anchors() + " anchors verified.");
+        } else if (result.report().brokenNode() == null) {
+            redirect.addFlashAttribute(FLASH_ERROR, "Audit verification failed: " + result.report().problem() + ".");
         } else {
             redirect.addFlashAttribute(FLASH_ERROR, "Audit chain TAMPERED: node " + result.report().brokenNode()
-                    + ", record #" + result.report().firstInvalidSequence());
+                    + ", record #" + result.report().firstInvalidSequence() + " (" + result.report().problem() + ").");
         }
         return REDIRECT_HOME;
     }

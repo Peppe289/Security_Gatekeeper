@@ -161,15 +161,22 @@
 
         <p class="small" th:if="${integrity == null}">
             <span class="badge">not verified</span>
-            <span th:text="'Verification recomputes the whole SHA-256 chain from the database (at most once every ' + ${verifyCooldownSeconds} + ' s).'">Verification recomputes the whole SHA-256 chain from the database.</span>
+            <span th:text="'Verification recomputes the whole chain and checks the HMAC signature of every record and the anchors kept outside the database (at most once every ' + ${verifyCooldownSeconds} + ' s).'">Verification recomputes the whole chain.</span>
         </p>
         <p class="small" th:if="${integrity != null}">
             <span class="badge badge-ok" th:if="${integrity.valid}">intact</span>
             <span class="badge badge-bad" th:unless="${integrity.valid}">tampered</span>
-            <span th:text="${integrity.checkedRecords} + ' records across ' + ${integrity.nodes} + ' node(s), verified at '">…</span>
+            <span th:text="${integrity.checkedRecords} + ' records and ' + ${integrity.anchors} + ' anchors across ' + ${integrity.nodes} + ' node(s), verified at '">…</span>
             <time th:datetime="${integrity.verifiedAt}" th:text="${integrity.verifiedAt}" data-local>…</time>
-            <span th:unless="${integrity.valid}"
-                  th:text="' — first invalid record: node ' + ${integrity.brokenNode} + ' #' + ${integrity.firstInvalidSequence}">…</span>
+            <span th:if="${!integrity.valid and integrity.brokenNode != null}"
+                  th:text="' — first invalid record: node ' + ${integrity.brokenNode} + ' #' + ${integrity.firstInvalidSequence} + ' (' + ${integrity.problem} + ')'">…</span>
+            <span th:if="${!integrity.valid and integrity.brokenNode == null}"
+                  th:text="' — ' + ${integrity.problem}">…</span>
+        </p>
+        <p class="small muted" th:unless="${persistentAnchors}">
+            <span class="badge badge-warn">no anchor directory</span>
+            Anchors are written to the log only: set <code>gateway.audit.anchor-dir</code> so that
+            verification also detects records deleted from the end of a chain.
         </p>
 
         <p class="small muted">

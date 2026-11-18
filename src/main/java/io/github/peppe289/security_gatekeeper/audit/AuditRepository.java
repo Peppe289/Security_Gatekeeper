@@ -22,6 +22,7 @@ public class AuditRepository {
 
     private static final String COLUMNS = "sequence, ts, client_ip, method, path, route_prefix, decision, "
             + "http_status, previous_hash, hash";
+    private static final String MAC_COLUMNS = "mac_key_id, mac";
     private static final int STREAM_FETCH_SIZE = 1000;
 
     private final JdbcClient jdbc;
@@ -35,6 +36,13 @@ public class AuditRepository {
         public Instant timestamp() {
             return Instant.ofEpochMilli(record.getTimestampMillis());
         }
+    }
+
+    /**
+     * A record with its MAC (see {@link AuditKeys}). Both {@code keyId} and {@code mac}
+     * are {@code null} for a row stored without one.
+     */
+    public record SignedRecord(AuditRecord record, String keyId, String mac) {
     }
 
     /** Last record of a node's chain, used to resume it. */
@@ -65,10 +73,12 @@ public class AuditRepository {
     }
 
     /** Inserts a batch atomically: either every record is stored or none is. */
-    public void insertBatch(String nodeId, List<AuditRecord> records) {
+    public void insertBatch(String nodeId, List<SignedRecord> records) {
         tx.executeWithoutResult(status -> jdbcTemplate.batchUpdate(
-                "INSERT INTO audit_log (node_id, " + COLUMNS + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                records, records.size(), (ps, r) -> {
+                "INSERT INTO audit_log (node_id, " + COLUMNS + ", " + MAC_COLUMNS
+                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                records, records.size(), (ps, signed) -> {
+                    AuditRecord r = signed.record();
                     ps.setString(1, nodeId);
                     ps.setLong(2, r.getSequence());
                     ps.setTimestamp(3, Timestamp.from(Instant.ofEpochMilli(r.getTimestampMillis())));
@@ -80,6 +90,8 @@ public class AuditRepository {
                     ps.setInt(9, r.getHttpStatus());
                     ps.setString(10, r.getPreviousHash());
                     ps.setString(11, r.getHash());
+                    ps.setString(12, signed.keyId());
+                    ps.setString(13, signed.mac());
                 }));
     }
 
@@ -99,16 +111,17 @@ public class AuditRepository {
      * Streams a node's chain in sequence order through {@code consumer} with a
      * server-side cursor (constant memory). Stops when the consumer returns {@code false}.
      */
-    public void streamChain(String nodeId, Predicate<AuditRecord> consumer) {
+    public void streamChain(String nodeId, Predicate<SignedRecord> consumer) {
         readOnlyTx.executeWithoutResult(status -> jdbcTemplate.query(con -> {
-            var ps = con.prepareStatement("SELECT " + COLUMNS + " FROM audit_log WHERE node_id = ? ORDER BY sequence");
+            var ps = con.prepareStatement("SELECT " + COLUMNS + ", " + MAC_COLUMNS
+                    + " FROM audit_log WHERE node_id = ? ORDER BY sequence");
             ps.setFetchSize(STREAM_FETCH_SIZE);
             ps.setString(1, nodeId);
             return ps;
         }, rs -> {
             boolean more = true;
             while (more && rs.next()) {
-                more = consumer.test(map(rs));
+                more = consumer.test(new SignedRecord(map(rs), rs.getString("mac_key_id"), rs.getString("mac")));
             }
             return null;
         }));

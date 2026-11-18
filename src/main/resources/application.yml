@@ -88,6 +88,13 @@ gateway:
     queue-capacity: 50000
     batch-size: 500
     flush-interval: 500ms
+    # Required: at least 32 characters, e.g. `openssl rand -base64 48`. Keep it out of the database.
+    # After a rotation, list the old keys under previous-hmac-keys so older records still verify.
+    hmac-key: ${GATEWAY_AUDIT_HMAC_KEY:}
+    # Signed chain heads are appended here (outside the database) and checked by verification.
+    # Empty: anchors are only written to the log.
+    anchor-dir: ${GATEWAY_AUDIT_ANCHOR_DIR:}
+    anchor-interval: 60s
   dashboard:
     stats-refresh: 5s
     verify-cooldown: 30s
