@@ -14,6 +14,7 @@
     --bad-bg: #fde7e5;
     --key: #5b3cc4;
     --key-bg: #ece7fd;
+    --primary-bg: #dfe8fc;
     --radius: 10px;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     color-scheme: light;
@@ -35,6 +36,7 @@
         --bad-bg: #3d1a18;
         --key: #a990ff;
         --key-bg: #2a2150;
+        --primary-bg: #1d2b4d;
         color-scheme: dark;
     }
 }
@@ -113,6 +115,50 @@ h3 { font-size: 1rem; margin-top: 20px; }
 .tile-bad { border-left-color: var(--bad); }
 .tile-label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .tile-value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Machine load: verdict, meter list (resource vs. its limit) and trend sparklines. */
+.verdict { display: flex; align-items: baseline; gap: 8px; margin: 0 0 16px; }
+/* One grid for every row, so the bars of all resources line up. */
+.meters {
+    display: grid;
+    grid-template-columns: minmax(110px, 160px) 1fr auto auto;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 2px;
+    margin-bottom: 16px;
+}
+.meter-row { display: contents; }
+.meter-name { font-weight: 600; }
+.meter-figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.meter-row .badge { justify-self: start; }
+.meter-detail { grid-column: 2 / -1; margin-bottom: 12px; }
+.meter { display: block; overflow: visible; }
+.meter-ok .meter-track { fill: var(--primary-bg); }
+.meter-ok .meter-fill { fill: var(--primary); }
+.meter-warn .meter-track { fill: var(--warn-bg); }
+.meter-warn .meter-fill { fill: var(--warn); }
+.meter-bad .meter-track { fill: var(--bad-bg); }
+.meter-bad .meter-fill { fill: var(--bad); }
+.meter-none .meter-track { fill: var(--border); }
+.meter-peak { stroke: var(--text); stroke-width: 2; }
+.trends { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 12px; }
+.trends .tile { gap: 2px; }
+.trends .tile-value { white-space: nowrap; }
+.spark { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; }
+.spark-base { stroke: var(--border); stroke-width: 1; }
+.spark-line { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark-dot { fill: var(--primary); stroke: var(--surface); stroke-width: 2; }
+
+@media (max-width: 640px) {
+    /* Each resource on its own block: name and level, then the bar, then the figures. */
+    .meters { grid-template-columns: 1fr; row-gap: 12px; }
+    .meter-row { display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 4px; }
+    .meter-name { grid-row: 1; grid-column: 1; }
+    .meter-row .badge { grid-row: 1; grid-column: 2; justify-self: end; }
+    .meter { grid-row: 2; grid-column: 1 / -1; }
+    .meter-figure { grid-row: 3; grid-column: 1 / -1; }
+    .meter-detail { grid-row: 4; grid-column: 1 / -1; margin-bottom: 0; }
+}
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }

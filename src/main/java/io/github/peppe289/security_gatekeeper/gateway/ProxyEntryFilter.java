@@ -4,6 +4,7 @@ import io.github.peppe289.security_gatekeeper.gateway.forward.ForwardResponse;
 import io.github.peppe289.security_gatekeeper.gateway.pipeline.GatewayPipeline;
 import io.github.peppe289.security_gatekeeper.gateway.pipeline.ProxyExchange;
 import io.github.peppe289.security_gatekeeper.gateway.pipeline.ProxyOutcome;
+import io.github.peppe289.security_gatekeeper.monitoring.InFlightRequests;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,9 +38,11 @@ public class ProxyEntryFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(ProxyEntryFilter.class);
 
     private final GatewayPipeline pipeline;
+    private final InFlightRequests inFlight;
 
-    public ProxyEntryFilter(GatewayPipeline pipeline) {
+    public ProxyEntryFilter(GatewayPipeline pipeline, InFlightRequests inFlight) {
         this.pipeline = pipeline;
+        this.inFlight = inFlight;
     }
 
     @Override
@@ -55,11 +58,16 @@ public class ProxyEntryFilter extends OncePerRequestFilter {
                 headers(request), request.getInputStream(), request.getContentLengthLong(), request.getRemoteAddr(),
                 request.getScheme());
 
-        ProxyOutcome outcome = pipeline.execute(exchange);
-        if (outcome instanceof ProxyOutcome.Forwarded forwarded) {
-            writeUpstreamResponse(forwarded.response(), response);
-        } else if (outcome instanceof ProxyOutcome.Rejected rejected) {
-            writeRejection(rejected, response);
+        inFlight.enter();
+        try {
+            ProxyOutcome outcome = pipeline.execute(exchange);
+            if (outcome instanceof ProxyOutcome.Forwarded forwarded) {
+                writeUpstreamResponse(forwarded.response(), response);
+            } else if (outcome instanceof ProxyOutcome.Rejected rejected) {
+                writeRejection(rejected, response);
+            }
+        } finally {
+            inFlight.exit();
         }
     }
 

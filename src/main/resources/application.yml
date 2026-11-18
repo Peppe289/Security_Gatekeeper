@@ -95,6 +95,11 @@ gateway:
     # Empty: anchors are only written to the log.
     anchor-dir: ${GATEWAY_AUDIT_ANCHOR_DIR:}
     anchor-interval: 60s
+  monitoring:
+    # Machine (container) load on the dashboard: one sample every sample-interval,
+    # peaks computed over the last window.
+    sample-interval: 5s
+    window: 15m
   dashboard:
     stats-refresh: 5s
     verify-cooldown: 30s

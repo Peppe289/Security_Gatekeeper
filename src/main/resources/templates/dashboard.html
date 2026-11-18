@@ -65,6 +65,68 @@
         </div>
     </section>
 
+    <section class="card" aria-labelledby="load-title">
+        <div class="section-head">
+            <h2 id="load-title">Machine load</h2>
+            <span class="muted small">
+                Container metrics, one sample every <span th:text="${load.intervalText()}">5 s</span>
+                <th:block th:if="${load.sampledAt != null}">
+                    · peaks over the last <span th:text="${load.coveredText()}">15 min</span>
+                    · latest sample
+                    <time th:datetime="${load.sampledAt}" th:text="${load.sampledAt}" data-local>now</time>
+                </th:block>
+                · <a th:href="@{/_gatekeeper/}">Refresh</a>
+            </span>
+        </div>
+
+        <p class="verdict">
+            <span class="badge" th:classappend="'badge-' + ${load.verdict.level.css}"
+                  th:text="${load.verdict.level.label}">OK</span>
+            <span th:text="${load.verdict.message}">Plenty of headroom.</span>
+        </p>
+
+        <div class="meters" th:unless="${#lists.isEmpty(load.meters)}">
+            <div class="meter-row" th:each="m : ${load.meters}">
+                <span class="meter-name" th:text="${m.name}">CPU</span>
+                <svg class="meter" width="100%" height="8" role="img" focusable="false"
+                     th:classappend="'meter-' + ${m.level.css}"
+                     th:attr="aria-label=${m.name} + ': ' + ${m.currentText()} + ' now, peak ' + ${m.peakText()}">
+                    <rect class="meter-track" x="0" y="0" width="100%" height="8" rx="4"/>
+                    <rect class="meter-fill" x="0" y="0" height="8" rx="4"
+                          th:attr="width=${m.currentWidth()} + '%'"/>
+                    <line class="meter-peak" y1="0" y2="8" th:if="${m.measured()}"
+                          th:attr="x1=${m.peakX()} + '%',x2=${m.peakX()} + '%'"/>
+                </svg>
+                <span class="meter-figure" th:text="${m.currentText()} + ' now · peak ' + ${m.peakText()}">0% now · peak 0%</span>
+                <span class="badge" th:classappend="'badge-' + ${m.level.css}" th:text="${m.level.label}">OK</span>
+                <span class="meter-detail muted small" th:text="${m.detail}">detail</span>
+            </div>
+        </div>
+
+        <div class="tiles trends" th:unless="${#lists.isEmpty(load.trends)}">
+            <div class="tile" th:each="t : ${load.trends}">
+                <span class="tile-label" th:text="${t.name}">CPU</span>
+                <span class="tile-value" th:text="${t.current}">0%</span>
+                <span class="muted small" th:if="${t.measured}"
+                      th:text="'avg ' + ${t.average} + ' · peak ' + ${t.peak}">avg · peak</span>
+                <svg class="spark" viewBox="0 0 240 56" role="img" focusable="false" th:if="${t.measured}"
+                     th:attr="aria-label=${t.description}">
+                    <title th:text="${t.description}">trend</title>
+                    <line class="spark-base" x1="0" y1="51" x2="240" y2="51"/>
+                    <polyline class="spark-line" th:attr="points=${t.points}"/>
+                    <circle class="spark-dot" r="4" th:attr="cx=${t.lastX},cy=${t.lastY}"/>
+                </svg>
+                <span class="muted small" th:unless="${t.measured}" th:text="${t.description}">n/a</span>
+            </div>
+        </div>
+
+        <p class="small muted">
+            Levels use the peak of the window: <strong>High</strong> from 70%, <strong>Critical</strong> from 90%;
+            the tick on each bar marks the peak. Network traffic counts every interface of the container
+            (clients, upstreams and the database) and is measured on Linux only.
+        </p>
+    </section>
+
     <!-- Routes ---------------------------------------------------------------------------------->
     <section class="card">
         <div class="section-head">

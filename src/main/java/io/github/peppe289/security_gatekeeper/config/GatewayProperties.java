@@ -31,7 +31,8 @@ public record GatewayProperties(
         @DefaultValue @Valid RateLimit rateLimit,
         @DefaultValue @Valid LoginThrottle loginThrottle,
         @DefaultValue @Valid Audit audit,
-        @DefaultValue @Valid Dashboard dashboard) {
+        @DefaultValue @Valid Dashboard dashboard,
+        @DefaultValue @Valid Monitoring monitoring) {
 
     /**
      * Single admin account. If {@code password} is empty a random one is
@@ -139,5 +140,16 @@ public record GatewayProperties(
             @DefaultValue("5s") @NotNull Duration statsRefresh,
             @DefaultValue("30s") @NotNull Duration verifyCooldown,
             @DefaultValue("50") @Min(1) @Max(500) int recentAuditRows) {
+    }
+
+    /**
+     * Load of the machine (container) shown on the dashboard.
+     *
+     * @param sampleInterval time between two samples of CPU, memory, network and threads
+     * @param window         how long samples are kept: peaks are computed over this window
+     */
+    public record Monitoring(
+            @DefaultValue("5s") @NotNull Duration sampleInterval,
+            @DefaultValue("15m") @NotNull Duration window) {
     }
 }

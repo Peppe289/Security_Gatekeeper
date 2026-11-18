@@ -2,6 +2,8 @@ package io.github.peppe289.security_gatekeeper.config;
 
 import io.github.peppe289.security_gatekeeper.gateway.ProxyEntryFilter;
 import io.github.peppe289.security_gatekeeper.gateway.pipeline.GatewayPipeline;
+import io.github.peppe289.security_gatekeeper.monitoring.InFlightRequests;
+import io.github.peppe289.security_gatekeeper.monitoring.LoadMonitor;
 import io.github.peppe289.security_gatekeeper.ratelimit.NanoClock;
 import io.github.peppe289.security_gatekeeper.ratelimit.RateLimiterService;
 import io.github.peppe289.security_gatekeeper.route.RouteService;
@@ -45,8 +47,9 @@ public class AppConfig {
 
     /** Runs the reverse proxy right after the Spring Security filter chain. */
     @Bean
-    FilterRegistrationBean<ProxyEntryFilter> proxyEntryFilter(GatewayPipeline pipeline) {
-        FilterRegistrationBean<ProxyEntryFilter> registration = new FilterRegistrationBean<>(new ProxyEntryFilter(pipeline));
+    FilterRegistrationBean<ProxyEntryFilter> proxyEntryFilter(GatewayPipeline pipeline, InFlightRequests inFlight) {
+        FilterRegistrationBean<ProxyEntryFilter> registration =
+                new FilterRegistrationBean<>(new ProxyEntryFilter(pipeline, inFlight));
         registration.addUrlPatterns("/*");
         registration.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER + 1);
         registration.setName("proxyEntryFilter");
@@ -56,10 +59,11 @@ public class AppConfig {
     /** Periodic maintenance, with intervals taken from typed configuration. */
     @Bean
     SchedulingConfigurer gatewayMaintenance(GatewayProperties properties, RateLimiterService rateLimiter,
-                                            RouteService routes) {
+                                            RouteService routes, LoadMonitor loadMonitor) {
         return (ScheduledTaskRegistrar registrar) -> {
             registrar.addFixedDelayTask(rateLimiter::evictIdle, properties.rateLimit().evictionInterval());
             registrar.addFixedDelayTask(routes::refresh, properties.routes().refreshInterval());
+            registrar.addFixedRateTask(loadMonitor::sample, properties.monitoring().sampleInterval());
         };
     }
 }

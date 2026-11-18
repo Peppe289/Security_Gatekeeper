@@ -3,6 +3,7 @@ package io.github.peppe289.security_gatekeeper.admin;
 import static io.github.peppe289.security_gatekeeper.gateway.ProxyEntryFilter.ADMIN_PATH;
 
 import io.github.peppe289.security_gatekeeper.config.GatewayProperties;
+import io.github.peppe289.security_gatekeeper.monitoring.LoadMonitor;
 import io.github.peppe289.security_gatekeeper.route.RouteExceptions.InvalidRouteException;
 import io.github.peppe289.security_gatekeeper.route.RouteExceptions.RouteAlreadyExistsException;
 import io.github.peppe289.security_gatekeeper.route.RouteExceptions.RouteNotFoundException;
@@ -37,15 +38,18 @@ public class DashboardController {
 
     private final RouteService routes;
     private final DashboardService dashboard;
+    private final LoadMonitor loadMonitor;
     private final String apiKeyHeader;
     private final String nodeId;
     private final long statsRefreshSeconds;
     private final long verifyCooldownSeconds;
     private final boolean persistentAnchors;
 
-    public DashboardController(RouteService routes, DashboardService dashboard, GatewayProperties properties) {
+    public DashboardController(RouteService routes, DashboardService dashboard, LoadMonitor loadMonitor,
+                               GatewayProperties properties) {
         this.routes = routes;
         this.dashboard = dashboard;
+        this.loadMonitor = loadMonitor;
         this.apiKeyHeader = properties.apiKeyHeader();
         this.nodeId = properties.nodeId();
         this.statsRefreshSeconds = properties.dashboard().statsRefresh().toSeconds();
@@ -64,6 +68,7 @@ public class DashboardController {
         model.addAttribute("nodeId", nodeId);
         model.addAttribute("routes", routes.findAll());
         model.addAttribute("snapshot", dashboard.snapshot());
+        model.addAttribute("load", loadMonitor.report());
         model.addAttribute("integrity", dashboard.lastIntegrity());
         model.addAttribute("apiKeyHeader", apiKeyHeader);
         model.addAttribute("statsRefreshSeconds", statsRefreshSeconds);
