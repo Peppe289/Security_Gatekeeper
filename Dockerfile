@@ -1,5 +1,5 @@
 # ---- build -------------------------------------------------------------------------
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /workspace
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
@@ -10,7 +10,7 @@ RUN ./mvnw -B -q -DskipTests package \
  && java -Djarmode=tools -jar target/security_gatekeeper-*.jar extract --layers --launcher --destination extracted
 
 # ---- runtime -----------------------------------------------------------------------
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S gatekeeper && adduser -S -G gatekeeper -H gatekeeper \
  && mkdir -p /var/lib/gatekeeper/anchors && chown -R gatekeeper:gatekeeper /var/lib/gatekeeper
 WORKDIR /app
