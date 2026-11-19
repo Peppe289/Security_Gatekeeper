@@ -26,6 +26,12 @@
         <pitest.mutation.threshold>90</pitest.mutation.threshold>
         <jmh.version>1.37</jmh.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
+
+        <!-- Test stack required by the course: newer than the versions managed by Spring Boot -->
+        <junit-jupiter.version>6.1.3</junit-jupiter.version>
+        <mockito.version>5.24.0</mockito.version>
+        <!-- Set by JaCoCo's prepare-agent; empty when it does not run -->
+        <argLine></argLine>
     </properties>
 
     <dependencies>
@@ -131,6 +137,30 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+
+            <!-- Exposes the path of the Mockito jar as ${org.mockito:mockito-core:jar} -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dependency-paths</id>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Mockito's inline mock maker is loaded as an agent: the JDK warns about (and will
+                 eventually forbid) agents attached at run time -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+                </configuration>
             </plugin>
 
             <!-- JaCoCo: coverage report + quality gate bound to `mvn verify` -->
