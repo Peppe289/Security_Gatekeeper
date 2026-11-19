@@ -67,7 +67,7 @@ jobs:
         if: ${{ env.SNYK_TOKEN != '' }}
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
           cache: maven
 
       # Pinned to a release commit, not to the master branch; Dependabot keeps it updated.
@@ -117,7 +117,7 @@ jobs:
         if: ${{ env.SONAR_TOKEN != '' }}
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
           cache: maven
 
       - name: Cache SonarQube packages

@@ -54,8 +54,8 @@ jobs:
         run: find "$CORE_DIR" -name '*.java' | sort | tee /tmp/core-sources.txt
 
       # No --release flag: OpenJML ships JML specs for the JDK it is built on (21), and
-      # targeting an older platform makes those specs fail to load. core is plain
-      # Java 17 code, which compiles unchanged on 21.
+      # targeting another platform makes those specs fail to load. The project targets
+      # Java 25, but core must stay within Java 21 language features so OpenJML can parse it.
       - name: Type check
         run: ~/openjml/openjml -check @/tmp/core-sources.txt
 

@@ -305,7 +305,7 @@ https://<domain>/myservice/api/x   ──▶   http://internal-service:8080/api/
 
 ### 3.7 Portability and delivery
 
-- **NFR-37** Runtime: Java 17 and PostgreSQL.
+- **NFR-37** Runtime: Java 25 and PostgreSQL 18.
 - **NFR-38** Layered multi-stage Docker image, with multi-architecture releases (amd64 and
   arm64) published to GHCR for every `v*` tag.
 - **NFR-39** A local stack that starts with `docker compose up` (gateway, database and a

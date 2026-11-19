@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
           cache: maven
 
       # Unit + integration tests (Testcontainers uses the runner's Docker),
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '25'
           cache: maven
 
       # Fails the build below the threshold set in pom.xml (pitest.mutation.threshold).

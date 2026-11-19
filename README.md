@@ -108,7 +108,7 @@ Every setting is listed in `src/main/resources/application.yml`.
 
 ## Development
 
-Requires Java 17. Integration tests need Docker, because they use Testcontainers.
+Requires Java 25. Integration tests need Docker, because they use Testcontainers.
 
 ```bash
 ./mvnw verify                           # unit and integration tests, coverage check

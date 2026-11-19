@@ -15,7 +15,7 @@
     <description>Containerized HTTP reverse proxy with a web admin panel, per-route rate limiting, API keys and a tamper-evident audit chain</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>25</java.version>
 
         <!-- Quality tooling -->
         <jacoco.version>0.8.16</jacoco.version>
