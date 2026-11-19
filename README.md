@@ -141,7 +141,7 @@ GitHub Actions workflows live in `.github/workflows`:
 | `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
 
 Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven, the Docker base images
-and the GitHub Actions.
+and the GitHub Actions, assigned to the maintainer; `.github/CODEOWNERS` requests their review.
 
 One-time setup on GitHub:
 
@@ -241,7 +241,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [ ] `.github/workflows/codeql-analysis.yml` (Java, `security-and-quality` queries)
 - [ ] Code scanning enabled and its alerts reviewed *(GitHub)*
 - [ ] Secret scanning and push protection enabled *(GitHub)*
-- [ ] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
+- [x] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
 - [ ] CodeQL and a Dependabot-alert check integrated as CI quality gates
 - [ ] Dependabot alerts reviewed and addressed *(GitHub)*
 - [ ] `security.md` report: configuration, security policy, alert metrics

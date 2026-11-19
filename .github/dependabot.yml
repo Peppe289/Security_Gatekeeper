@@ -1,9 +1,12 @@
 version: 2
+# Review requests come from .github/CODEOWNERS (Dependabot's own `reviewers` option is
+# deprecated); `assignees` makes each update show up in the maintainer's queue.
 updates:
   - package-ecosystem: maven
     directory: /
     schedule:
       interval: weekly
+    assignees: [Peppe289]
     groups:
       maven-minor-and-patch:
         update-types: [minor, patch]
@@ -12,6 +15,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    assignees: [Peppe289]
     ignore:
       # The JDK major is set in pom.xml and the workflows too: bump it by hand, everywhere at once.
       - dependency-name: eclipse-temurin
@@ -21,6 +25,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    assignees: [Peppe289]
     groups:
       actions:
         patterns: ['*']
