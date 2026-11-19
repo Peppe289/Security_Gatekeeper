@@ -174,3 +174,80 @@ One-time setup on GitHub:
   deletions from the end of a chain, unless someone compares the logged anchors by hand.
 - Removing the oldest records looks the same as retention. A node whose records were all
   purged on purpose fails verification until its anchor file is removed too.
+
+## Course requirements (Software Dependability)
+
+Progress against the project assignments of the
+[Software Dependability labs](https://github.com/dardin88/swd-labs). Every report is a
+Markdown file of at most 5,000 characters, linked from this README. Items marked
+*(GitHub)* depend on repository settings or accounts and cannot be checked from the code.
+
+### Lab 1: CI/CD
+- [x] `.github/workflows/ci.yml` runs on push and pull request to `master`
+- [x] The pipeline builds the project and runs the test suite (`./mvnw verify`)
+- [ ] GitHub Actions verified green on push *(GitHub)*
+- [ ] `CICD.md` report: pipeline stages, build reproducibility, code quality
+
+### Lab 2a: Containerization
+- [x] Multi-stage `Dockerfile` following best practices (non-root user, layered jar, `HEALTHCHECK`, `.dockerignore`)
+- [x] `docker-compose.yml` with the application and a supporting service (PostgreSQL)
+- [x] Named volume for the database data
+- [x] Secrets kept out of the compose file (`.env`, not committed)
+- [ ] `healthcheck` declared for every service in `docker-compose.yml` (the gateway's is only in the `Dockerfile`)
+- [ ] `restart: on-failure` recovery policy (services use `unless-stopped`)
+- [ ] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
+- [ ] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
+- [ ] `Docker.md` report: anti-patterns avoided, audit of the Docker build workflow
+
+### Lab 3: Test cases
+- [x] Unit tests for the critical components (core domain, gateway filters, route and dashboard services)
+- [x] Tests follow the FIRST principles and need no external service
+- [x] JUnit 6.1.3 and Mockito 5.24.0
+- [x] External dependencies mocked with Mockito (repository, forwarder, audit service, rate limiter, clock)
+- [x] Tests run in the CI pipeline
+- [ ] README section describing the testing approach
+- [ ] `testing.md` report
+
+### Lab 4: Coverage and mutation testing
+- [x] JaCoCo with a quality gate in `pom.xml` (85% lines and branches on `core`)
+- [x] PiTest with a quality gate in `pom.xml` (90% mutation threshold on `core`)
+- [x] Coverage and mutation testing run in the CI pipeline
+- [ ] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
+- [ ] Coverage and mutation badges in this README
+- [ ] `coverage.md` report: configuration, line and branch coverage, least-covered classes, improvement plan
+- [ ] `mutation.md` report: configuration, mutation score, killed vs. survived, improvement plan
+
+### Lab 5: JML and OpenJML
+- [x] Components suited to formal verification identified (`core` package)
+- [x] Invariants, preconditions and postconditions on the core classes
+- [x] OpenJML set up (`.github/workflows/openjml.yml`)
+- [x] Static verification with ESC
+- [ ] Runtime assertion checking with RAC
+- [ ] `verification.md` report: setup, specifications, ESC and RAC results, lessons learned
+
+### Lab 6: Microbenchmarking with JMH
+- [x] JMH dependencies in `pom.xml` and a `benchmark` package
+- [x] At least three microbenchmarks (`TokenBucketBenchmark`)
+- [x] Warm-up, measurement and fork parameters configured
+- [x] Separate, manually triggered benchmark workflow (`benchmark.yml`)
+- [ ] Benchmarks for other performance-critical methods (audit chain, hashing, route resolution)
+- [ ] At least two test cases converted to benchmarks with JU2JMH
+- [ ] Warm-up phases configured with AMBER
+- [ ] Benchmarks run locally, results analysed and bottlenecks identified
+- [ ] `benchmarking.md` report: methods and why, configuration, results, improvements
+
+### Lab 7: Code security analysis on GitHub
+- [x] `.github/dependabot.yml` with weekly updates (Maven, Docker, GitHub Actions)
+- [ ] `.github/workflows/codeql-analysis.yml` (Java, `security-and-quality` queries)
+- [ ] Code scanning enabled and its alerts reviewed *(GitHub)*
+- [ ] Secret scanning and push protection enabled *(GitHub)*
+- [ ] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
+- [ ] CodeQL and a Dependabot-alert check integrated as CI quality gates
+- [ ] Dependabot alerts reviewed and addressed *(GitHub)*
+- [ ] `security.md` report: configuration, security policy, alert metrics
+
+### Lab 8: Secret scanning and vulnerability management
+- [x] GitGuardian, Snyk and SonarQube Cloud integrated in the pipeline (`security.yml`)
+- [ ] Accounts created and `GITGUARDIAN_API_KEY`, `SNYK_TOKEN`, `SONAR_TOKEN` configured *(GitHub)*
+- [ ] Pipeline results reviewed in the three dashboards
+- [ ] `Security_and_Quality.md` report: integration, findings, SonarQube metrics, lessons learned
