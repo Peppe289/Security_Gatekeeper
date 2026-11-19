@@ -25,7 +25,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    restart: on-failure
 
   db:
     image: postgres:18-alpine
@@ -41,12 +41,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    restart: unless-stopped
+    restart: on-failure
 
   # Example internal service: not published on the host, reachable only through the gateway.
   whoami:
     image: traefik/whoami:v1.12
-    restart: unless-stopped
+    restart: on-failure
 
 volumes:
   db-data:

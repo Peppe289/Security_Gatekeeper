@@ -194,7 +194,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Named volume for the database data
 - [x] Secrets kept out of the compose file (`.env`, not committed)
 - [ ] `healthcheck` declared for every service in `docker-compose.yml` (the gateway's is only in the `Dockerfile`)
-- [ ] `restart: on-failure` recovery policy (services use `unless-stopped`)
+- [x] `restart: on-failure` recovery policy
 - [ ] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
 - [ ] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
 - [ ] `Docker.md` report: anti-patterns avoided, audit of the Docker build workflow
