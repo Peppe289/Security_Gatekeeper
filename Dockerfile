@@ -1,5 +1,7 @@
 # ---- build -------------------------------------------------------------------------
-FROM eclipse-temurin:25-jdk-alpine AS build
+# Runs on the build host's platform: the jar is architecture-independent, so Maven never runs
+# under emulation and only the runtime stage below is built once per target platform.
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /workspace
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
