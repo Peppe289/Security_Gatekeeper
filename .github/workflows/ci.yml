@@ -31,7 +31,7 @@ jobs:
           cache: maven
 
       # Unit + integration tests (Testcontainers uses the runner's Docker),
-      # JaCoCo report and coverage gate on the core package.
+      # JaCoCo report and coverage gates (core and whole project).
       - name: Maven verify
         run: ./mvnw -B -ntp verify
 
@@ -56,8 +56,8 @@ jobs:
           core = [r for r in rows if '.core' in r['PACKAGE']]
           print("### Coverage (JaCoCo)\n")
           print("| Scope | Lines | Branches |\n|---|---|---|")
-          print(f"| core (gate: 85%) | {pct(core, 'LINE')} | {pct(core, 'BRANCH')} |")
-          print(f"| whole project | {pct(rows, 'LINE')} | {pct(rows, 'BRANCH')} |")
+          print(f"| core (gate: 95% / 95%) | {pct(core, 'LINE')} | {pct(core, 'BRANCH')} |")
+          print(f"| whole project (gate: 85% / 80%) | {pct(rows, 'LINE')} | {pct(rows, 'BRANCH')} |")
           EOF
 
       # Coverage history and pull-request comments on Codecov. Pull requests from forks get no
