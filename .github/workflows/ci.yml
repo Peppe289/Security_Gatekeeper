@@ -60,6 +60,27 @@ jobs:
           print(f"| whole project | {pct(rows, 'LINE')} | {pct(rows, 'BRANCH')} |")
           EOF
 
+      # Coverage history and pull-request comments on Codecov. Pull requests from forks get no
+      # secrets, so they skip it. An outage of Codecov does not fail the build: the JaCoCo gate
+      # in `mvn verify` is the one that enforces coverage.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.fork != true }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/site/jacoco/jacoco.xml
+          flags: unit-and-integration
+          fail_ci_if_error: false
+
+      - name: Upload test results to Codecov
+        uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() && github.event.pull_request.head.repo.fork != true }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: target/surefire-reports/TEST-*.xml
+          fail_ci_if_error: false
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
