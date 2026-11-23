@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -231,10 +232,15 @@ public class AuditService implements SmartLifecycle {
         return running;
     }
 
-    /** Started after the web server is stopped last: pending events are flushed on shutdown. */
+    /**
+     * Below the web server's phases: Spring starts lifecycle beans in ascending phase order and
+     * stops them in descending order, so the writer is running before the server accepts the
+     * first request, and stops only after graceful shutdown has let in-flight requests finish
+     * and the server has stopped. Their events are then flushed by {@link #stop()}.
+     */
     @Override
     public int getPhase() {
-        return Integer.MAX_VALUE - 1000;
+        return WebServerApplicationContext.START_STOP_LIFECYCLE_PHASE - 1;
     }
 
     private void writeLoop() {
