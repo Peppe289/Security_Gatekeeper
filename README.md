@@ -1,5 +1,8 @@
 # Security Gatekeeper
 
+[![CI](https://github.com/Peppe289/Security_Gatekeeper/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Peppe289/Security_Gatekeeper/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Peppe289/Security_Gatekeeper/branch/master/graph/badge.svg)](https://codecov.io/gh/Peppe289/Security_Gatekeeper)
+
 A containerized HTTP reverse proxy that exposes internal services on a public domain.
 It comes with a web admin panel, per-route rate limiting, optional API keys and a
 tamper-evident audit log (a hash chain stored in PostgreSQL, signed with HMAC-SHA256 and
@@ -234,8 +237,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] JaCoCo with a quality gate in `pom.xml` (85% lines and branches on `core`)
 - [x] PiTest with a quality gate in `pom.xml` (90% mutation threshold on `core`)
 - [x] Coverage and mutation testing run in the CI pipeline
-- [ ] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
-- [ ] Coverage and mutation badges in this README
+- [x] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
+- [ ] Coverage and mutation badges in this README (coverage done; mutation pending)
 - [ ] [`coverage.md`](docs/coverage.md) report: configuration, line and branch coverage, least-covered classes, improvement plan
 - [ ] [`mutation.md`](docs/mutation.md) report: configuration, mutation score, killed vs. survived, improvement plan
 
