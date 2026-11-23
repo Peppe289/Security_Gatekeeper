@@ -137,6 +137,7 @@ GitHub Actions workflows live in `.github/workflows`:
 | `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
 | `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
+| `docker-build.yml` | CI succeeded on a push to `master` | Builds the tested commit and pushes it to Docker Hub (`peppe289/security_gatekeeper`) as `:latest` and `:sha-<commit>`. |
 | `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
 
 Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven, the Docker base images
@@ -152,6 +153,8 @@ One-time setup on GitHub:
   | `GITGUARDIAN_API_KEY` | GitGuardian dashboard › API › Personal access tokens |
   | `SNYK_TOKEN` | Snyk › Account settings › Auth token |
   | `SONAR_TOKEN` | SonarQube Cloud › My account › Security |
+  | `DOCKER_USERNAME` | Docker Hub username |
+  | `DOCKER_PASSWORD` | Docker Hub › Account settings › Personal access tokens (read & write) |
 
 - **SonarQube Cloud:** import the repository there first. If the organization or project
   key differs from the defaults (`<owner>` and `<owner>_<repository>`), set the repository
@@ -194,7 +197,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Secrets kept out of the compose file (`.env`, not committed)
 - [x] `healthcheck` declared for every service in `docker-compose.yml`
 - [x] `restart: on-failure` recovery policy
-- [ ] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
+- [x] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
 - [ ] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
 - [ ] `Docker.md` report: anti-patterns avoided, audit of the Docker build workflow
 
