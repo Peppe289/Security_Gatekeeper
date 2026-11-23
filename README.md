@@ -155,7 +155,7 @@ GitHub Actions workflows live in `.github/workflows`:
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gate on `core`), PiTest with a blocking mutation threshold, Docker image build. The JaCoCo and PiTest reports are attached to each run as artifacts. |
+| `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gates on `core` and on the whole project), PiTest with blocking mutation and coverage thresholds, Docker image build. The JaCoCo and PiTest reports are attached to each run as artifacts. |
 | `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
 | `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
@@ -234,8 +234,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] [`testing.md`](docs/testing.md) report
 
 ### Lab 4: Coverage and mutation testing
-- [x] JaCoCo with a quality gate in `pom.xml` (85% lines and branches on `core`)
-- [x] PiTest with a quality gate in `pom.xml` (90% mutation threshold on `core`)
+- [x] JaCoCo with quality gates in `pom.xml` (95% lines and branches on `core`, 85% lines and 80% branches on the whole project)
+- [x] PiTest with quality gates in `pom.xml` (90% mutation score and 95% line coverage on `core`)
 - [x] Coverage and mutation testing run in the CI pipeline
 - [x] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
 - [ ] Coverage and mutation badges in this README (coverage done; mutation pending)

@@ -69,7 +69,7 @@ instead of sleeping. This improves *controllability*. Mocked collaborators impro
 ## CI integration
 
 `ci.yml` runs `./mvnw verify` on every push and pull request. Test results are published on
-the run (`dorny/test-reporter`), and the JaCoCo gate (85% on `core`) fails the build if
+the run (`dorny/test-reporter`), and the JaCoCo gates (95% on `core`, 85%/80% overall) fail the build if
 coverage drops. Mutation testing with PiTest runs in a separate job (see
 `mutation.md`).
 

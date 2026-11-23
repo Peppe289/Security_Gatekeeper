@@ -23,7 +23,7 @@ minute (build and test 60 s, mutation 40 s, image 44 s on the latest run).
 1. **Checkout** and **JDK 25** (Temurin) with the Maven cache.
 2. **`./mvnw -B -ntp verify`** compiles, runs the **329 tests** (297 unit, 32 integration
    with a real PostgreSQL started by Testcontainers on the runner's Docker), produces the
-   JaCoCo report and enforces the **coverage gate** (85% of lines and branches on `core`).
+   JaCoCo report and enforces the **coverage gates** (95% on `core`, 85%/80% project-wide).
    Any failing test or coverage drop fails the job.
 3. **Test report**: `dorny/test-reporter` publishes the JUnit results as a check on the
    commit or pull request.
@@ -66,7 +66,7 @@ current, at the cost of bit-for-bit reproducibility.
 
 - **Fail fast**: tests, coverage and mutation thresholds run on every commit; a regression
   blocks the merge and the image publication.
-- **Quality gates**: JaCoCo (85% on `core`) and PiTest (90% on `core`) are enforced by the
+- **Quality gates**: JaCoCo (95% on `core`, 85%/80% overall) and PiTest (90% on `core`) are enforced by the
   build itself (`pom.xml`), so they apply locally too, not only in CI.
 - **Formal verification**: `openjml.yml` type-checks and statically verifies the JML
   specifications of `core` (both blocking) whenever `core` changes.
