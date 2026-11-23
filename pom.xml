@@ -19,11 +19,16 @@
 
         <!-- Quality tooling -->
         <jacoco.version>0.8.16</jacoco.version>
-        <jacoco.minimum.line.coverage>0.85</jacoco.minimum.line.coverage>
-        <jacoco.minimum.branch.coverage>0.85</jacoco.minimum.branch.coverage>
+        <!-- Coverage gates: strict on the pure-Java domain, looser on the whole project -->
+        <jacoco.core.minimum.line.coverage>0.95</jacoco.core.minimum.line.coverage>
+        <jacoco.core.minimum.branch.coverage>0.95</jacoco.core.minimum.branch.coverage>
+        <jacoco.project.minimum.line.coverage>0.85</jacoco.project.minimum.line.coverage>
+        <jacoco.project.minimum.branch.coverage>0.80</jacoco.project.minimum.branch.coverage>
         <pitest.version>1.30.2</pitest.version>
         <pitest.junit5.version>1.2.3</pitest.junit5.version>
         <pitest.mutation.threshold>90</pitest.mutation.threshold>
+        <!-- Line coverage of the mutated classes, as measured by PiTest -->
+        <pitest.coverage.threshold>95</pitest.coverage.threshold>
         <jmh.version>1.37</jmh.version>
         <exec-maven-plugin.version>3.7.0</exec-maven-plugin.version>
 
@@ -190,13 +195,13 @@
                         </goals>
                     </execution>
                     <execution>
-                        <id>check</id>
+                        <id>check-core</id>
                         <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <!-- Gate on the pure-Java domain (core); the Spring layers are covered by integration tests. -->
+                            <!-- Pure-Java domain: no framework, every path must be tested. -->
                             <includes>
                                 <include>io/github/peppe289/security_gatekeeper/core/**</include>
                             </includes>
@@ -207,12 +212,39 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>${jacoco.minimum.line.coverage}</minimum>
+                                            <minimum>${jacoco.core.minimum.line.coverage}</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>${jacoco.minimum.branch.coverage}</minimum>
+                                            <minimum>${jacoco.core.minimum.branch.coverage}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>check-project</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Whole project, unit and integration tests together. -->
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.project.minimum.line.coverage}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.project.minimum.branch.coverage}</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
@@ -248,6 +280,7 @@
                         <mutator>STRONGER</mutator>
                     </mutators>
                     <mutationThreshold>${pitest.mutation.threshold}</mutationThreshold>
+                    <coverageThreshold>${pitest.coverage.threshold}</coverageThreshold>
                     <outputFormats>
                         <param>HTML</param>
                         <param>XML</param>
