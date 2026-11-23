@@ -107,7 +107,8 @@ Every setting is listed in `src/main/resources/application.yml`.
 
 ## Development
 
-Requires Java 25. Integration tests need Docker, because they use Testcontainers.
+Requires Java 25. Integration tests need Docker, because they use Testcontainers. Building
+the image needs BuildKit (the `buildx` plugin): the classic builder is not supported.
 
 ```bash
 ./mvnw verify                           # unit and integration tests, coverage check
@@ -137,7 +138,7 @@ GitHub Actions workflows live in `.github/workflows`:
 | `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
 | `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
-| `docker-build.yml` | CI succeeded on a push to `master` | Builds the tested commit and pushes it to Docker Hub (`peppe289/security_gatekeeper`) as `:latest` and `:sha-<commit>`. |
+| `docker-build.yml` | CI succeeded on a push to `master` | Builds the tested commit for amd64 and arm64 and pushes it to Docker Hub (`peppe289/security_gatekeeper`) as `:latest` and `:sha-<commit>`. |
 | `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
 
 Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven, the Docker base images
