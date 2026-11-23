@@ -1,7 +1,7 @@
-# Local stack: gateway + PostgreSQL + a sample internal service.
+# Local stack: gateway + PostgreSQL.
 #   cp .env.example .env   # then set the passwords
 #   docker compose up --build
-# Panel: http://localhost:8080/_gatekeeper/   Sample route: http://localhost:8080/whoami/
+# Panel: http://localhost:8080/_gatekeeper/
 services:
   gatekeeper:
     build: .
@@ -17,9 +17,6 @@ services:
       # Kept outside the database. In production, prefer storage the database host cannot write to.
       GATEWAY_AUDIT_ANCHOR_DIR: /var/lib/gatekeeper/anchors
       GATEWAY_NODEID: gatekeeper-1
-      # Inserted once at first start; afterwards routes are managed from the panel.
-      GATEWAY_ROUTES_SEED_0_PREFIX: whoami
-      GATEWAY_ROUTES_SEED_0_TARGETURL: http://whoami:80
     volumes:
       - audit-anchors:/var/lib/gatekeeper/anchors
     depends_on:
@@ -41,11 +38,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    restart: on-failure
-
-  # Example internal service: not published on the host, reachable only through the gateway.
-  whoami:
-    image: traefik/whoami:v1.12
     restart: on-failure
 
 volumes:

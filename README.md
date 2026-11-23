@@ -17,7 +17,6 @@ docker compose up --build
 ```
 
 - Admin panel: <http://localhost:8080/_gatekeeper/> (user `admin`)
-- Sample route: <http://localhost:8080/whoami/>
 
 ## How it works
 
