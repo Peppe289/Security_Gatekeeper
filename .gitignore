@@ -29,6 +29,9 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+### DON'T ASK ###
+docs/APPUNTI.*
+
 ### VS Code ###
 .vscode/
 
