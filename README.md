@@ -202,7 +202,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] `restart: on-failure` recovery policy
 - [x] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
 - [x] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
-- [ ] `Docker.md` report: anti-patterns avoided, audit of the course's reference Docker build workflow
+- [x] [`Docker.md`](docs/Docker.md) report: anti-patterns avoided, audit of the course's reference Docker build workflow
+- [x] Fault-injection experiment on the database ([`fault-tolerance.md`](docs/fault-tolerance.md))
 
 ### Lab 3: Test cases
 - [x] Unit tests for the critical components (core domain, gateway filters, route and dashboard services)
