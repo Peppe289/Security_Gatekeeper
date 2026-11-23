@@ -118,6 +118,22 @@ the image needs BuildKit (the `buildx` plugin): the classic builder is not suppo
 ./mvnw -Pbenchmark -DskipTests verify   # JMH benchmarks
 ```
 
+### Testing
+
+- **Unit tests** (JUnit 6, Mockito 5) cover each component in isolation. The `core` domain is
+  pure Java and needs no mocks; services and filters get their collaborators (repositories,
+  HTTP client, audit service, rate limiter) as Mockito mocks.
+- **Time is injected** (`Clock`, `NanoClock`, or the instant passed to `TokenBucket`), so
+  rate limiting, caches and cooldowns are tested with fake clocks instead of sleeps.
+  Asynchronous effects are awaited with Mockito timeouts, never with fixed delays.
+- **Integration tests** (`*IntegrationTest`) start the whole application with a real
+  PostgreSQL from Testcontainers: proxying end to end, the admin panel, audit tampering, and
+  the audit flush on shutdown.
+- Test cases come from equivalence classes and boundary values of the specification, and
+  JaCoCo branch coverage shows what is still missing.
+
+Details and figures: [`docs/testing.md`](docs/testing.md).
+
 Package layout:
 
 | Package | Contents |
@@ -206,13 +222,13 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Fault-injection experiment on the database ([`fault-tolerance.md`](docs/fault-tolerance.md))
 
 ### Lab 3: Test cases
-- [x] Unit tests for the critical components (core domain, gateway filters, route and dashboard services)
-- [x] Tests follow the FIRST principles and need no external service
+- [x] Unit tests for the critical components (core domain, gateway filters and forwarding, rate limiter, audit writer, route, login and dashboard services, load report)
+- [x] Tests follow the FIRST principles; unit tests need no external service (integration tests use Testcontainers)
 - [x] JUnit 6.1.3 and Mockito 5.24.0
 - [x] External dependencies mocked with Mockito (repository, forwarder, audit service, rate limiter, clock)
 - [x] Tests run in the CI pipeline
-- [ ] README section describing the testing approach
-- [ ] [`testing.md`](docs/testing.md) report
+- [x] README section describing the testing approach
+- [x] [`testing.md`](docs/testing.md) report
 
 ### Lab 4: Coverage and mutation testing
 - [x] JaCoCo with a quality gate in `pom.xml` (85% lines and branches on `core`)
