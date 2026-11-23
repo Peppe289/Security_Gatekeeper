@@ -207,7 +207,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] `.github/workflows/ci.yml` runs on push and pull request to `master`
 - [x] The pipeline builds the project and runs the test suite (`./mvnw verify`)
 - [x] GitHub Actions verified green on push *(GitHub)*
-- [ ] [`CICD.md`](docs/CICD.md) report: pipeline stages, build reproducibility, code quality
+- [x] [`CICD.md`](docs/CICD.md) report: pipeline stages, build reproducibility, code quality
 
 ### Lab 2a: Containerization
 - [x] Multi-stage `Dockerfile` following best practices (non-root user, layered jar, `HEALTHCHECK`, `.dockerignore`)
