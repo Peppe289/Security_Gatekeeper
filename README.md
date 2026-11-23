@@ -17,6 +17,8 @@ docker compose up --build
 ```
 
 - Admin panel: <http://localhost:8080/_gatekeeper/> (user `admin`)
+- Prebuilt image (amd64, arm64): `docker pull peppe289/security_gatekeeper`, published from
+  every green build of `master`
 
 ## How it works
 
@@ -188,7 +190,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 ### Lab 1: CI/CD
 - [x] `.github/workflows/ci.yml` runs on push and pull request to `master`
 - [x] The pipeline builds the project and runs the test suite (`./mvnw verify`)
-- [ ] GitHub Actions verified green on push *(GitHub)*
+- [x] GitHub Actions verified green on push *(GitHub)*
 - [ ] `CICD.md` report: pipeline stages, build reproducibility, code quality
 
 ### Lab 2a: Containerization
@@ -199,8 +201,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] `healthcheck` declared for every service in `docker-compose.yml`
 - [x] `restart: on-failure` recovery policy
 - [x] `.github/workflows/docker-build.yml`: runs after a successful CI, builds and pushes the image to DockerHub
-- [ ] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
-- [ ] `Docker.md` report: anti-patterns avoided, audit of the Docker build workflow
+- [x] `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets configured and image published *(GitHub)*
+- [ ] `Docker.md` report: anti-patterns avoided, audit of the course's reference Docker build workflow
 
 ### Lab 3: Test cases
 - [x] Unit tests for the critical components (core domain, gateway filters, route and dashboard services)
