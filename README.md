@@ -191,7 +191,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] `.github/workflows/ci.yml` runs on push and pull request to `master`
 - [x] The pipeline builds the project and runs the test suite (`./mvnw verify`)
 - [x] GitHub Actions verified green on push *(GitHub)*
-- [ ] `CICD.md` report: pipeline stages, build reproducibility, code quality
+- [ ] [`CICD.md`](docs/CICD.md) report: pipeline stages, build reproducibility, code quality
 
 ### Lab 2a: Containerization
 - [x] Multi-stage `Dockerfile` following best practices (non-root user, layered jar, `HEALTHCHECK`, `.dockerignore`)
@@ -212,7 +212,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] External dependencies mocked with Mockito (repository, forwarder, audit service, rate limiter, clock)
 - [x] Tests run in the CI pipeline
 - [ ] README section describing the testing approach
-- [ ] `testing.md` report
+- [ ] [`testing.md`](docs/testing.md) report
 
 ### Lab 4: Coverage and mutation testing
 - [x] JaCoCo with a quality gate in `pom.xml` (85% lines and branches on `core`)
@@ -220,8 +220,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Coverage and mutation testing run in the CI pipeline
 - [ ] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
 - [ ] Coverage and mutation badges in this README
-- [ ] `coverage.md` report: configuration, line and branch coverage, least-covered classes, improvement plan
-- [ ] `mutation.md` report: configuration, mutation score, killed vs. survived, improvement plan
+- [ ] [`coverage.md`](docs/coverage.md) report: configuration, line and branch coverage, least-covered classes, improvement plan
+- [ ] [`mutation.md`](docs/mutation.md) report: configuration, mutation score, killed vs. survived, improvement plan
 
 ### Lab 5: JML and OpenJML
 - [x] Components suited to formal verification identified (`core` package)
@@ -229,7 +229,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] OpenJML set up (`.github/workflows/openjml.yml`)
 - [x] Static verification with ESC
 - [ ] Runtime assertion checking with RAC
-- [ ] `verification.md` report: setup, specifications, ESC and RAC results, lessons learned
+- [ ] [`verification.md`](docs/verification.md) report: setup, specifications, ESC and RAC results, lessons learned
 
 ### Lab 6: Microbenchmarking with JMH
 - [x] JMH dependencies in `pom.xml` and a `benchmark` package
@@ -240,7 +240,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [ ] At least two test cases converted to benchmarks with JU2JMH
 - [ ] Warm-up phases configured with AMBER
 - [ ] Benchmarks run locally, results analysed and bottlenecks identified
-- [ ] `benchmarking.md` report: methods and why, configuration, results, improvements
+- [ ] [`benchmarking.md`](docs/benchmarking.md) report: methods and why, configuration, results, improvements
 
 ### Lab 7: Code security analysis on GitHub
 - [x] `.github/dependabot.yml` with weekly updates (Maven, Docker, GitHub Actions)
@@ -250,10 +250,10 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
 - [ ] CodeQL and a Dependabot-alert check integrated as CI quality gates
 - [ ] Dependabot alerts reviewed and addressed *(GitHub)*
-- [ ] `security.md` report: configuration, security policy, alert metrics
+- [ ] [`security.md`](docs/security.md) report: configuration, security policy, alert metrics
 
 ### Lab 8: Secret scanning and vulnerability management
 - [x] GitGuardian, Snyk and SonarQube Cloud integrated in the pipeline (`security.yml`)
 - [ ] Accounts created and `GITGUARDIAN_API_KEY`, `SNYK_TOKEN`, `SONAR_TOKEN` configured *(GitHub)*
 - [ ] Pipeline results reviewed in the three dashboards
-- [ ] `Security_and_Quality.md` report: integration, findings, SonarQube metrics, lessons learned
+- [ ] [`Security_and_Quality.md`](docs/Security_and_Quality.md) report: integration, findings, SonarQube metrics, lessons learned
