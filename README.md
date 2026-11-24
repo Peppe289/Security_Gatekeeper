@@ -80,7 +80,8 @@ Rejections are returned as `application/problem+json` (RFC 9457).
   `gateway.dashboard.stats-refresh` (5 s by default). Nothing updates in real time.
 - **Machine load.** The panel also shows how loaded the container is, to judge how much
   more traffic it can take. Every `gateway.monitoring.sample-interval` (5 s) the gateway
-  samples CPU and memory (container-aware, so measured against the container's limits),
+  samples CPU and memory (container-aware, so measured against the container's limits;
+  memory excludes the reclaimable page cache, like the `available` column of `free`),
   the JVM heap, busy worker threads, the audit queue and the network traffic of the
   container's interfaces (from `/proc/net/dev`, so Linux only). Each resource shows its
   current value and its peak over `gateway.monitoring.window` (15 min); a resource is
