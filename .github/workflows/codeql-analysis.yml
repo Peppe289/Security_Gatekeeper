@@ -1,0 +1,88 @@
+name: CodeQL
+
+# Static analysis of the Java code with CodeQL (`security-and-quality` queries). Results go to
+# Security > Code scanning; the job fails on any High or Critical security alert, or on any
+# error-level finding, in the analysed commit.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 5 * * 1'   # weekly: new CodeQL queries can flag code that did not change
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (Java)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload the results to code scanning
+      actions: read            # read the workflow run, needed by the upload
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+          queries: security-and-quality
+
+      # Production code only: test code is not shipped and would add noise to the results.
+      - name: Build
+        run: ./mvnw -B -ntp -DskipTests compile
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:java-kotlin
+          output: sarif-results
+
+      # Quality gate. Security alerts carry a CVSS-like `security-severity` (High >= 7.0,
+      # Critical >= 9.0); quality alerts only a level (error, warning, note).
+      - name: Quality gate
+        run: |
+          python3 - <<'EOF'
+          import glob, json, os, sys
+          results, rules = [], {}
+          for path in glob.glob('sarif-results/*.sarif'):
+              for run in json.load(open(path))['runs']:
+                  components = [run['tool']['driver']] + run['tool'].get('extensions', [])
+                  for component in components:
+                      for rule in component.get('rules', []):
+                          rules[rule['id']] = rule.get('properties', {})
+                  results += run.get('results', [])
+          rows, blocking = [], 0
+          for r in results:
+              props = rules.get(r['ruleId'], {})
+              score = float(props.get('security-severity', 0) or 0)
+              level = r.get('level', props.get('problem.severity', 'warning'))
+              blocks = score >= 7.0 or level == 'error'
+              blocking += blocks
+              loc = r['locations'][0]['physicalLocation']
+              where = f"{loc['artifactLocation']['uri']}:{loc.get('region', {}).get('startLine', '?')}"
+              rows.append(f"| {'❌' if blocks else '⚠️'} | `{r['ruleId']}` | {score or '-'} | {level} | `{where}` |")
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write(f"### CodeQL: {len(results)} alert(s), {blocking} blocking\n\n")
+              if rows:
+                  out.write("| | Rule | Security severity | Level | Location |\n|---|---|---|---|---|\n")
+                  out.write('\n'.join(rows) + '\n')
+          print(f"{len(results)} alert(s), {blocking} blocking")
+          sys.exit(1 if blocking else 0)
+          EOF
