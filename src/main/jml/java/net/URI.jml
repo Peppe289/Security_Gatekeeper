@@ -1,0 +1,32 @@
+// Corrected JML specification for the parts of java.net.URI used by the core package
+// (RoutePolicy.isValidTargetUrl). OpenJML's own specification leaves the return values of these
+// getters non-null by default, but the JDK documents that each returns null when the URI has no
+// such component (e.g. getRawQuery() for "http://host/path"): runtime assertion checking
+// reported every such call as a violation. Passed with --specs-path, this file takes precedence.
+package java.net;
+
+public final class URI implements Comparable<URI>, java.io.Serializable {
+
+    // One `behavior` case: for the same string the constructor may either return or throw.
+    // (Two cases with the same precondition, one normal and one exceptional, contradict each
+    // other: every call would violate one of them.)
+    //@ public behavior
+    //@   requires str != null;
+    //@   signals_only URISyntaxException;
+    public URI(String str) throws URISyntaxException;
+
+    //@ pure
+    public /*@ nullable @*/ String getScheme();
+
+    //@ pure
+    public /*@ nullable @*/ String getHost();
+
+    //@ pure
+    public /*@ nullable @*/ String getRawUserInfo();
+
+    //@ pure
+    public /*@ nullable @*/ String getRawQuery();
+
+    //@ pure
+    public /*@ nullable @*/ String getRawFragment();
+}
