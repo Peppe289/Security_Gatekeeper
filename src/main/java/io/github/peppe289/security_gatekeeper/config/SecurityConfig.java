@@ -3,10 +3,6 @@ package io.github.peppe289.security_gatekeeper.config;
 import static io.github.peppe289.security_gatekeeper.gateway.ProxyEntryFilter.ADMIN_PATH;
 
 import io.github.peppe289.security_gatekeeper.admin.LoginThrottle;
-import java.security.SecureRandom;
-import java.util.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +35,6 @@ import org.springframework.security.web.header.writers.StaticHeadersWriter;
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     public static final String LOGIN_PATH = ADMIN_PATH + "/login";
 
@@ -105,14 +100,8 @@ public class SecurityConfig {
 
     @Bean
     UserDetailsService adminUser(GatewayProperties properties, PasswordEncoder encoder) {
+        // Required (validated in GatewayProperties): never generated, so it never reaches the logs.
         String password = properties.admin().password();
-        if (password == null || password.isBlank()) {
-            byte[] random = new byte[18];
-            new SecureRandom().nextBytes(random);
-            password = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
-            log.warn("\n\n  No GATEWAY_ADMIN_PASSWORD set. Generated admin password: {}\n"
-                    + "  It changes at every restart: set GATEWAY_ADMIN_PASSWORD for a stable one.\n", password);
-        }
         String encoded = password.startsWith("{") ? password : encoder.encode(password);
         return new InMemoryUserDetailsManager(User.withUsername(properties.admin().username())
                 .password(encoded)

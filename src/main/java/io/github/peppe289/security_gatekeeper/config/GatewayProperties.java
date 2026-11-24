@@ -35,13 +35,13 @@ public record GatewayProperties(
         @DefaultValue @Valid Monitoring monitoring) {
 
     /**
-     * Single admin account. If {@code password} is empty a random one is
-     * generated at startup and logged once. A value starting with {@code {id}}
-     * (e.g. {@code {bcrypt}$2a$...}) is used as an already-encoded hash.
+     * Single admin account. The password is required: the gateway refuses to start without
+     * it, rather than generating one that would end up in the logs. A value starting with
+     * {@code {id}} (e.g. {@code {bcrypt}$2a$...}) is used as an already-encoded hash.
      */
     public record Admin(
             @DefaultValue("admin") @NotBlank String username,
-            String password) {
+            @NotBlank String password) {
 
         @Override
         public String toString() {

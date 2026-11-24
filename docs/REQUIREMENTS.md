@@ -162,7 +162,8 @@ https://<domain>/myservice/api/x   ──▶   http://internal-service:8080/api/
 - **FR-44** The panel must live under `/_gatekeeper/` and require a login (single user, role
   `ADMIN`).
 - **FR-45** The admin password comes from `GATEWAY_ADMIN_PASSWORD` and may be pre-encoded
-  (`{bcrypt}…`). If it is missing, a random one is generated and logged once.
+  (`{bcrypt}…`). It is required: without it the gateway refuses to start, so no password
+  is ever generated or logged.
 - **FR-46** The main page must show: enabled/total routes, total requests, allowed,
   rejected, rate-limited, failed forwards and tracked clients.
 - **FR-47** Every state-changing operation must be a POST followed by a redirect

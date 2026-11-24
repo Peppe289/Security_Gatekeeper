@@ -69,7 +69,7 @@ gateway:
   api-key-header: X-Api-Key
   admin:
     username: admin
-    # Empty: a random password is generated and logged at startup. Set GATEWAY_ADMIN_PASSWORD.
+    # Required: the gateway does not start without it. Set GATEWAY_ADMIN_PASSWORD.
     password: ${GATEWAY_ADMIN_PASSWORD:}
   forwarder:
     connect-timeout: 5s

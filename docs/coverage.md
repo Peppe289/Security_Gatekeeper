@@ -46,7 +46,7 @@ By package, branches are where the gaps are:
 **Lowest-covered classes**: `LoginController` (25% of branches: the "already logged in"
 redirect is never exercised), `RouteForm` (82.6% lines, 50% branches: setters bound only by
 the panel), `DashboardController` (89.2% / 57.1%: the `/_gatekeeper` redirect and some
-form-error paths), `SecurityConfig` (90.7% / 50%: the generated-password branch),
+form-error paths), `SecurityConfig` (the pre-encoded `{bcrypt}` password branch),
 `JvmSystemProbe` (90.9% / 77.8%: platform-dependent branches, e.g. no `/proc/net/dev`).
 
 **Methods never executed**: `DashboardController.root`, `RouteForm.setBurstCapacity` /

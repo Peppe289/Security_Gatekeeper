@@ -102,7 +102,7 @@ Terminate TLS on the public domain, in one of two ways:
 | Variable | Default | Description |
 |---|---|---|
 | `DATABASE_URL` / `DATABASE_USERNAME` / `DATABASE_PASSWORD` | `jdbc:postgresql://localhost:5432/gatekeeper` | PostgreSQL connection |
-| `GATEWAY_ADMIN_PASSWORD` | *(generated and logged at startup)* | admin panel password; `{bcrypt}…` hashes are accepted |
+| `GATEWAY_ADMIN_PASSWORD` | *(required)* | admin panel password; `{bcrypt}…` hashes are accepted |
 | `GATEWAY_NODEID` | hostname | identifies this instance's audit chain |
 | `GATEWAY_AUDIT_HMAC_KEY` | *(required)* | secret of at least 32 characters that signs the audit log (`openssl rand -base64 48`) |
 | `GATEWAY_AUDIT_ANCHOR_DIR` | *(empty: log only)* | directory outside the database for audit anchors; share it between instances so any of them can verify every chain |
