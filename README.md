@@ -272,11 +272,11 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 
 ### Lab 7: Code security analysis on GitHub
 - [x] `.github/dependabot.yml` with weekly updates (Maven, Docker, GitHub Actions)
-- [ ] `.github/workflows/codeql-analysis.yml` (Java, `security-and-quality` queries)
-- [ ] Code scanning enabled and its alerts reviewed *(GitHub)*
+- [x] `.github/workflows/codeql-analysis.yml` (Java, `security-and-quality` queries)
+- [x] Code scanning enabled and its alerts reviewed: 11 found, 8 fixed in code, 3 dismissed as by design with a written reason *(GitHub)*
 - [x] Secret scanning and push protection enabled *(GitHub)*, plus private vulnerability reporting and a [`SECURITY.md`](SECURITY.md) policy
 - [x] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
-- [ ] CodeQL and a Dependabot-alert check integrated as CI quality gates
+- [x] CodeQL and a Dependabot-alert check integrated as CI quality gates
 - [x] Dependabot alerts and security updates enabled; alerts reviewed (none open or closed so far) *(GitHub)*
 - [ ] [`security.md`](docs/security.md) report: configuration, security policy, alert metrics
 
