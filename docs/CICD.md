@@ -14,8 +14,8 @@ push / PR ─▶ ci.yml ── build-and-test ┐
 tag v*  ─▶ release.yml (multi-arch image on GHCR)
 ```
 
-The three CI jobs run **in parallel**, so the slowest one sets the feedback time: about one
-minute (build and test 60 s, mutation 40 s, image 44 s on the latest run).
+The three CI jobs run **in parallel**: feedback in about one minute (build and test 60 s,
+mutation 40 s, image 44 s on the latest run).
 
 ## Stages of `ci.yml`
 
@@ -76,8 +76,9 @@ current, at the cost of bit-for-bit reproducibility.
 
 ## Pipeline security
 
-- **Least privilege**: every workflow defaults to `contents: read`; only the build job gets
-  `checks: write` (test report) and only `release.yml` gets `packages: write`.
+- **Least privilege**: workflows default to `contents: read`. Only the build job gets
+  `checks: write`, `release.yml` `packages: write`, and the mutation-badge job (no project
+  code, master only) `contents: write`.
 - **Secrets** (Docker Hub, scanners) live in encrypted repository secrets, never in files.
   Pull requests from forks receive no secrets, and the jobs that need them are skipped.
 - **Concurrency**: a newer push cancels the older run on the same ref, saving minutes and

@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Peppe289/Security_Gatekeeper/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Peppe289/Security_Gatekeeper/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/Peppe289/Security_Gatekeeper/branch/master/graph/badge.svg)](https://codecov.io/gh/Peppe289/Security_Gatekeeper)
+[![Mutation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Peppe289/Security_Gatekeeper/badges/mutation.json)](https://github.com/Peppe289/Security_Gatekeeper/actions/workflows/ci.yml)
 
 A containerized HTTP reverse proxy that exposes internal services on a public domain.
 It comes with a web admin panel, per-route rate limiting, optional API keys and a
@@ -238,7 +239,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] PiTest with quality gates in `pom.xml` (90% mutation score and 95% line coverage on `core`)
 - [x] Coverage and mutation testing run in the CI pipeline
 - [x] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
-- [ ] Coverage and mutation badges in this README (coverage done; mutation pending)
+- [x] Coverage and mutation badges in this README (mutation score published by CI on the `badges` branch)
 - [ ] [`coverage.md`](docs/coverage.md) report: configuration, line and branch coverage, least-covered classes, improvement plan
 - [ ] [`mutation.md`](docs/mutation.md) report: configuration, mutation score, killed vs. survived, improvement plan
 
