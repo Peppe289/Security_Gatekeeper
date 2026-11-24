@@ -119,6 +119,7 @@ the image needs BuildKit (the `buildx` plugin): the classic builder is not suppo
 ```bash
 ./mvnw verify                           # unit and integration tests, coverage check
 ./mvnw -Pmutation verify                # adds PiTest mutation testing on the core package
+./mvnw -Pmutation-all test-compile org.pitest:pitest-maven:mutationCoverage  # whole-project mutation campaign (analysis)
 ./mvnw -Pbenchmark -DskipTests verify   # JMH benchmarks
 ```
 
@@ -240,8 +241,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Coverage and mutation testing run in the CI pipeline
 - [x] CodeCov upload in CI with the `CODECOV_TOKEN` secret *(GitHub)*
 - [x] Coverage and mutation badges in this README (mutation score published by CI on the `badges` branch)
-- [ ] [`coverage.md`](docs/coverage.md) report: configuration, line and branch coverage, least-covered classes, improvement plan
-- [ ] [`mutation.md`](docs/mutation.md) report: configuration, mutation score, killed vs. survived, improvement plan
+- [x] [`coverage.md`](docs/coverage.md) report: configuration, line and branch coverage, least-covered classes, improvement plan
+- [x] [`mutation.md`](docs/mutation.md) report: configuration, mutation score, killed vs. survived, improvement plan
 
 ### Lab 5: JML and OpenJML
 - [x] Components suited to formal verification identified (`core` package)
