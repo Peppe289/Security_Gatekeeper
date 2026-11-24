@@ -179,8 +179,8 @@ https://<domain>/myservice/api/x   ──▶   http://internal-service:8080/api/
 - **FR-52** The panel must show the load of the container the gateway runs in, so the
   administrator can judge how much more traffic it can take.
 - **FR-53** Every `gateway.monitoring.sample-interval` (5 s by default) the gateway must
-  sample: CPU in use against the CPUs available to the container; memory in use against the
-  container's limit; JVM heap against its maximum; worker threads busy with proxied
+  sample: CPU in use against the CPUs available to the container; memory in use, excluding
+  the reclaimable page cache, against the container's limit (or the host's memory); JVM heap against its maximum; worker threads busy with proxied
   requests against the server's maximum (the highest count since the previous sample);
   audit events queued against the queue capacity; bytes received and sent on the container's
   non-loopback interfaces; requests handled.
