@@ -135,4 +135,160 @@ class NodeVerifierTest {
         assertTrue(r.valid(), r.problem());
         assertEquals(3, r.checkedRecords());
     }
+
+    // Mutation-driven tests: the checks are layered, so a test that only asserts valid() == false
+    // cannot tell which defence fired. These assert the reason, the position and accept()'s result.
+
+    /** Index of the first record accept() rejects, or -1: the caller stops streaming there. */
+    private int firstRejected(List<SignedRecord> records, List<AuditAnchor> anchors) {
+        NodeVerifier v = new NodeVerifier(NODE, keys, anchors);
+        for (int i = 0; i < records.size(); i++) {
+            if (!v.accept(records.get(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Feeds every record, ignoring accept()'s result, as a stream that does not stop early would. */
+    private NodeVerifier.Result verifyAll(List<SignedRecord> records, List<AuditAnchor> anchors) {
+        NodeVerifier v = new NodeVerifier(NODE, keys, anchors);
+        records.forEach(v::accept);
+        return v.finish();
+    }
+
+    @Test
+    void acceptTellsTheCallerWhenToStopStreaming() {
+        List<SignedRecord> records = chain(3);
+        records.set(1, new SignedRecord(records.get(1).record(), null, null));
+        NodeVerifier v = new NodeVerifier(NODE, keys, List.of());
+
+        assertTrue(v.accept(records.get(0)));
+        assertFalse(v.accept(records.get(1)));
+        assertFalse(v.accept(records.get(2)), "stays invalid after the first failure");
+    }
+
+    @Test
+    void firstFailureIsKeptWhenMoreRecordsFollow() {
+        List<SignedRecord> records = chain(4);
+        records.set(1, new SignedRecord(records.get(1).record(), null, null));
+
+        NodeVerifier.Result r = verifyAll(records, List.of());
+
+        assertEquals(1, r.firstInvalidSequence());
+        assertEquals("record has no MAC", r.problem());
+        assertEquals(1, r.checkedRecords());
+    }
+
+    @Test
+    void recordDeletedInTheMiddleBreaksTheChain() {
+        List<SignedRecord> records = new ArrayList<>(chain(4));
+        records.remove(1);
+
+        NodeVerifier.Result r = verifyAll(records, List.of());
+
+        assertEquals(1, firstRejected(records, List.of()), "stops at the record after the gap");
+        assertEquals(2, r.firstInvalidSequence());
+        assertEquals("hash chain broken", r.problem());
+    }
+
+    @Test
+    void recordEditedWithoutTheKeyBreaksTheChain() {
+        // An attacker with database access changes the content but cannot recompute hash and MAC.
+        List<SignedRecord> records = chain(3);
+        SignedRecord original = records.get(1);
+        AuditRecord rec = original.record();
+        AuditRecord edited = new AuditRecord(rec.getSequence(), rec.getTimestampMillis(), rec.getClientIp(),
+                rec.getMethod(), "/innocent", rec.getRoutePrefix(), rec.getDecision(), rec.getHttpStatus(),
+                rec.getPreviousHash(), rec.getHash());
+        records.set(1, new SignedRecord(edited, original.keyId(), original.mac()));
+
+        NodeVerifier.Result r = verifyAll(records, List.of());
+
+        assertEquals(1, r.firstInvalidSequence());
+        assertEquals("hash chain broken", r.problem());
+    }
+
+    @Test
+    void chainStartingAtZeroMustStartFromGenesis() {
+        AuditRecord first = AuditRecord.create(0, 1L, "10.0.0.1", "GET", "/", "r", "ALLOW", 200, "b".repeat(64));
+
+        NodeVerifier.Result r = verifyAll(List.of(sign(first)), List.of());
+
+        assertEquals(0, r.firstInvalidSequence());
+        assertEquals("hash chain broken", r.problem());
+    }
+
+    @Test
+    void recordSignedWithAnUnknownKeyIsRejected() {
+        AuditKeys other = new AuditKeys("another-audit-key-0123456789abcdef", List.of());
+        List<SignedRecord> records = chain(2);
+        AuditRecord rec = records.get(1).record();
+        AuditKeys.Signature s = other.sign(AuditKeys.recordMessage(NODE, rec));
+        records.set(1, new SignedRecord(rec, s.keyId(), s.mac()));
+
+        NodeVerifier.Result r = verifyAll(records, List.of());
+
+        assertEquals(1, firstRejected(records, List.of()));
+        assertEquals(1, r.firstInvalidSequence());
+        assertEquals("invalid MAC, or signed with a key that is not configured", r.problem());
+    }
+
+    @Test
+    void recordDifferentFromItsAnchorNamesTheReason() {
+        List<SignedRecord> records = chain(3);
+        AuditAnchor wrong = AuditAnchor.create(NODE, 1, "b".repeat(64), 1L, keys);
+
+        NodeVerifier.Result r = verifyAll(records, List.of(wrong));
+
+        assertEquals(1, firstRejected(records, List.of(wrong)));
+        assertEquals("record differs from its anchor", r.problem());
+    }
+
+    @Test
+    void conflictingAnchorsNameTheReason() {
+        List<SignedRecord> records = chain(3);
+        AuditAnchor a = anchorOf(records.get(1));
+        AuditAnchor b = AuditAnchor.create(NODE, 1, "c".repeat(64), 2L, keys);
+
+        NodeVerifier.Result r = verifyAll(records, List.of(a, b));
+
+        assertEquals(1, r.firstInvalidSequence());
+        assertEquals("conflicting anchors for record #1", r.problem());
+    }
+
+    @Test
+    void firstForgedAnchorIsReported() {
+        List<SignedRecord> records = chain(3);
+        AuditAnchor a = anchorOf(records.get(2));
+        AuditAnchor forged5 = new AuditAnchor(NODE, 5, a.hash(), a.timestampMillis(), a.keyId(), a.mac());
+        AuditAnchor forged9 = new AuditAnchor(NODE, 9, a.hash(), a.timestampMillis(), a.keyId(), a.mac());
+
+        NodeVerifier.Result r = verifyAll(records, List.of(forged5, forged9));
+
+        assertEquals(5, r.firstInvalidSequence());
+        assertEquals("anchor #5 is not authentic", r.problem());
+    }
+
+    @Test
+    void laterConflictDoesNotHideAnEarlierForgery() {
+        List<SignedRecord> records = chain(3);
+        AuditAnchor a = anchorOf(records.get(2));
+        AuditAnchor forged = new AuditAnchor(NODE, 5, a.hash(), a.timestampMillis(), a.keyId(), a.mac());
+        AuditAnchor b = AuditAnchor.create(NODE, 1, "c".repeat(64), 2L, keys);
+
+        NodeVerifier.Result r = verifyAll(records, List.of(forged, anchorOf(records.get(1)), b));
+
+        assertEquals("anchor #5 is not authentic", r.problem());
+    }
+
+    @Test
+    void identicalDuplicateAnchorsAreNotAConflict() {
+        List<SignedRecord> records = chain(3);
+        AuditAnchor a = anchorOf(records.get(1));
+
+        NodeVerifier.Result r = verifyAll(records, List.of(a, a));
+
+        assertTrue(r.valid(), r.problem());
+    }
 }

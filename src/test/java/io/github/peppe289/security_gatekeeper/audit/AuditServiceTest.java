@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -56,12 +57,63 @@ class AuditServiceTest {
     private final AuditRepository repository = mock(AuditRepository.class);
     private final AuditAnchorStore anchors = mock(AuditAnchorStore.class);
     private final AuditKeys keys = new AuditKeys(TestProperties.HMAC_KEY, List.of());
-    private final Clock clock = Clock.fixed(T0, ZoneOffset.UTC);
+    private static final Duration ANCHOR_INTERVAL = Duration.ofSeconds(60);
+
+    private final MutableClock clock = new MutableClock(T0);
 
     private AuditService service(int queueCapacity) {
-        GatewayProperties properties = TestProperties.with(new GatewayProperties.Audit(queueCapacity, 500,
-                Duration.ofMillis(10), TestProperties.HMAC_KEY, List.of(), null, Duration.ofSeconds(60)));
+        return service(queueCapacity, 500);
+    }
+
+    private AuditService service(int queueCapacity, int batchSize) {
+        GatewayProperties properties = TestProperties.with(new GatewayProperties.Audit(queueCapacity, batchSize,
+                Duration.ofMillis(10), TestProperties.HMAC_KEY, List.of(), null, ANCHOR_INTERVAL));
         return new AuditService(repository, keys, anchors, clock, properties);
+    }
+
+    /** A clock the test moves forward explicitly. */
+    private static final class MutableClock extends Clock {
+        private volatile Instant now;
+
+        MutableClock(Instant start) {
+            now = start;
+        }
+
+        void advance(Duration d) {
+            now = now.plus(d);
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+
+        @Override
+        public ZoneOffset getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(java.time.ZoneId zone) {
+            return this;
+        }
+    }
+
+    /** Waits (without a fixed sleep) until the writer has persisted {@code n} records. */
+    private static void awaitPersisted(AuditService audit, long n) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofMillis(WAIT_MS).toNanos();
+        while (audit.stats().persisted() < n) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("persisted " + audit.stats().persisted() + " of " + n);
+            }
+            Thread.sleep(5);
+        }
+    }
+
+    private List<AuditAnchor> appendedAnchors(int times) throws IOException {
+        ArgumentCaptor<AuditAnchor> anchor = ArgumentCaptor.forClass(AuditAnchor.class);
+        verify(anchors, timeout(WAIT_MS).times(times)).append(anchor.capture());
+        return anchor.getAllValues();
     }
 
     private static void allow(AuditService audit, String path) {
@@ -273,6 +325,105 @@ class AuditServiceTest {
 
             verify(repository, never()).insertBatch(any(), anyList());
             verify(anchors, never()).append(any());
+        }
+
+        @Test
+        void idleWriterWritesNothing() {
+            audit.start();
+            verify(repository, after(200).never()).insertBatch(any(), anyList());
+        }
+
+        @Test
+        void pathOfExactlyTheMaximumLengthIsKeptWhole() {
+            String path = "/" + "p".repeat(AuditService.MAX_PATH_LENGTH - 1);
+            audit.start();
+            allow(audit, path);
+
+            assertEquals(path, inserted(1).get(0).getPath());
+        }
+
+        @Test
+        void batchesNeverExceedTheConfiguredSize() throws InterruptedException {
+            audit = service(100, 2);
+            for (int i = 0; i < 5; i++) {
+                allow(audit, "/" + i); // queued before the writer starts
+            }
+            audit.start();
+            awaitPersisted(audit, 5);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<SignedRecord>> batches = ArgumentCaptor.forClass(List.class);
+            verify(repository, atLeastOnce()).insertBatch(eq(NODE), batches.capture());
+            assertTrue(batches.getAllValues().stream().allMatch(b -> b.size() <= 2), "batch size <= 2");
+            assertEquals(5, batches.getAllValues().stream().mapToInt(List::size).sum());
+        }
+
+        @Test
+        void anchorsAreWrittenAtMostOncePerIntervalAndOnStop() throws Exception {
+            audit.start();
+            allow(audit, "/a");
+            assertEquals(0, appendedAnchors(1).get(0).sequence(), "first record anchored right away");
+
+            allow(audit, "/b");
+            allow(audit, "/c");
+            awaitPersisted(audit, 3);
+            verify(anchors, after(100).times(1)).append(any()); // interval not elapsed: no new anchor
+
+            audit.stop();
+            List<AuditAnchor> all = appendedAnchors(2);
+            assertEquals(2, all.get(1).sequence(), "the head is anchored on shutdown");
+        }
+
+        @Test
+        void newAnchorOnceTheIntervalHasElapsed() throws Exception {
+            audit.start();
+            allow(audit, "/a");
+            appendedAnchors(1);
+
+            clock.advance(ANCHOR_INTERVAL);
+            allow(audit, "/b");
+
+            assertEquals(1, appendedAnchors(2).get(1).sequence());
+        }
+
+        @Test
+        void unchangedHeadIsNotAnchoredAgain() throws Exception {
+            audit.start();
+            allow(audit, "/a");
+            appendedAnchors(1);
+
+            clock.advance(ANCHOR_INTERVAL.multipliedBy(2)); // due again, but nothing new to anchor
+
+            verify(anchors, after(200).times(1)).append(any());
+            audit.stop();
+            verify(anchors, times(1)).append(any());
+        }
+
+        @Test
+        void nullFieldsAreStoredAsEmptyStrings() {
+            audit.start();
+            audit.record(null, null, null, null, AccessDecision.ROUTE_NOT_FOUND, 404);
+
+            AuditRecord rec = inserted(1).get(0);
+            assertEquals("", rec.getClientIp());
+            assertEquals("", rec.getMethod());
+            assertEquals("", rec.getPath());
+            assertEquals("", rec.getRoutePrefix());
+        }
+
+        @Test
+        void stopDuringRetriesGivesUpPromptly() {
+            doThrow(new DataAccessResourceFailureException("down")).when(repository).insertBatch(eq(NODE), anyList());
+            audit.start();
+            allow(audit, "/a");
+            verify(repository, timeout(WAIT_MS)).insertBatch(eq(NODE), anyList());
+
+            long started = System.nanoTime();
+            audit.stop();
+
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(5)) < 0,
+                    "stop() must not wait for the retry loop");
+            assertEquals(0, audit.stats().persisted());
         }
     }
 }

@@ -70,4 +70,20 @@ class AuditKeysTest {
         assertThrows(IllegalArgumentException.class, () -> new AuditKeys("too-short", List.of()));
         assertThrows(IllegalArgumentException.class, () -> new AuditKeys(KEY, List.of("too-short")));
     }
+
+    @Test
+    void keyLengthBoundary() {
+        String exactly32 = "k".repeat(AuditKeys.MIN_KEY_LENGTH);
+        new AuditKeys(exactly32, List.of());
+        assertThrows(IllegalArgumentException.class,
+                () -> new AuditKeys(exactly32.substring(1), List.of()), "31 characters");
+        assertThrows(IllegalArgumentException.class, () -> new AuditKeys(null, List.of()));
+    }
+
+    @Test
+    void unknownKeyIdIsRejectedWithoutError() {
+        AuditKeys keys = new AuditKeys(KEY, List.of());
+        AuditKeys.Signature s = keys.sign("message");
+        assertFalse(keys.verify("0000000000000000", "message", s.mac()));
+    }
 }

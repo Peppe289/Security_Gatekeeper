@@ -83,4 +83,22 @@ class AuditAnchorStoreTest {
         store.append(anchor("node-a", 1));
         assertTrue(store.loadAll().isEmpty());
     }
+
+    @Test
+    void blankLinesAreSkippedAndErrorsNameTheLine() throws IOException {
+        AuditAnchorStore store = new AuditAnchorStore(dir);
+        Files.writeString(dir.resolve("node-a.anchors"),
+                anchor("node-a", 1).toLine() + "\n\n" + anchor("node-a", 2).toLine() + "\n", StandardCharsets.UTF_8);
+        assertEquals(2, store.loadAll().get("node-a").size());
+
+        Files.writeString(dir.resolve("node-a.anchors"), anchor("node-a", 1).toLine() + "\ngarbage\n",
+                StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+        IOException malformed = assertThrows(IOException.class, store::loadAll);
+        assertTrue(malformed.getMessage().endsWith("node-a.anchors:2"), malformed.getMessage());
+
+        Files.writeString(dir.resolve("node-a.anchors"), "\n" + anchor("node-b", 1).toLine() + "\n",
+                StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+        IOException misplaced = assertThrows(IOException.class, store::loadAll);
+        assertTrue(misplaced.getMessage().endsWith("node-a.anchors:2"), misplaced.getMessage());
+    }
 }
