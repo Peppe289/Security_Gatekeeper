@@ -161,7 +161,7 @@ GitHub Actions workflows live in `.github/workflows`:
 | `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gates on `core` and on the whole project), PiTest with blocking mutation and coverage thresholds, Docker image build. The JaCoCo and PiTest reports are attached to each run as artifacts. |
 | `security.yml` | push, pull request, weekly | Dependabot-alert gate (fails on open High/Critical alerts), GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
 | `codeql-analysis.yml` | push, pull request, weekly | CodeQL static analysis (`security-and-quality`), results in Security › Code scanning; fails on High/Critical security alerts or error-level findings. |
-| `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
+| `openjml.yml` | changes to `core`, its tests or `src/main/jml` | OpenJML type check, static verification (ESC) and runtime assertion checking (RAC) of the JML specifications, all blocking. |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
 | `docker-build.yml` | CI succeeded on a push to `master` | Builds the tested commit for amd64 and arm64 and pushes it to Docker Hub (`peppe289/security_gatekeeper`) as `:latest` and `:sha-<commit>`. |
 | `release.yml` | tag `v*` | Multi-arch image (amd64, arm64) published to `ghcr.io/<owner>/<repository>`. |
@@ -256,8 +256,8 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Invariants, preconditions and postconditions on the core classes
 - [x] OpenJML set up (`.github/workflows/openjml.yml`)
 - [x] Static verification with ESC
-- [ ] Runtime assertion checking with RAC
-- [ ] [`verification.md`](docs/verification.md) report: setup, specifications, ESC and RAC results, lessons learned
+- [x] Runtime assertion checking with RAC (core unit tests on instrumented classes, gated in `openjml.yml`)
+- [x] [`verification.md`](docs/verification.md) report: setup, specifications, ESC and RAC results, lessons learned
 
 ### Lab 6: Microbenchmarking with JMH
 - [x] JMH dependencies in `pom.xml` and a `benchmark` package
