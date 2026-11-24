@@ -123,7 +123,8 @@ public class RouteService implements SmartInitializingSingleton {
     }
 
     public void delete(String prefix) {
-        if (prefix == null || !repository.delete(prefix)) {
+        // Validated first: the prefix comes from the URL and is written to the log below.
+        if (!RoutePolicy.isValidPrefix(prefix) || !repository.delete(prefix)) {
             throw new RouteNotFoundException();
         }
         rateLimiter.resetAll(RateLimiterService.routeKeyPrefix(prefix));
@@ -133,7 +134,7 @@ public class RouteService implements SmartInitializingSingleton {
 
     /** Applies {@code write} to the database row, then returns the route as now stored. */
     private RoutePolicy update(String prefix, Predicate<String> write) {
-        boolean updated = prefix != null && write.test(prefix);
+        boolean updated = RoutePolicy.isValidPrefix(prefix) && write.test(prefix);
         refresh(); // also picks up a deletion made meanwhile (possibly by another instance)
         if (!updated) {
             throw new RouteNotFoundException();

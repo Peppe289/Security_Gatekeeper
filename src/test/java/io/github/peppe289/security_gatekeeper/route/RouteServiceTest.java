@@ -208,6 +208,13 @@ class RouteServiceTest {
         }
 
         @Test
+        void invalidPrefixNeverReachesTheDatabase() {
+            assertThrows(RouteNotFoundException.class, () -> service.delete("bad\nprefix"));
+            verify(repository, never()).delete(anyString());
+            verifyNoInteractions(rateLimiter);
+        }
+
+        @Test
         void unknownRouteFailsWithoutSideEffects() {
             when(repository.delete(anyString())).thenReturn(false);
 
