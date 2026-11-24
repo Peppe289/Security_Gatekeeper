@@ -1,11 +1,14 @@
 name: OpenJML
 
-# Checks the JML specifications of the pure-Java core package (both steps are blocking):
+# Checks the JML specifications of the pure-Java core package (every step is blocking):
 #   - type check (-check): JML syntax and typing;
-#   - static verification (-esc): proves every method against its specification.
+#   - static verification (-esc): proves every method against its specification;
+#   - runtime assertion checking (-rac): runs the core unit tests on instrumented classes,
+#     so the contracts are also checked on every call the tests make.
 # Methods whose bodies depend on JDK classes without usable JML specifications
-# (MessageDigest, URI, StringBuilder) are marked `skipesc` in the source; their
-# specifications are still used to verify their callers, and the unit tests cover them.
+# (MessageDigest, URI, StringBuilder) are marked `skipesc` in the source: ESC uses their
+# specifications for the callers, and RAC checks them at run time.
+# src/main/jml holds corrected specifications of JDK classes (see URI.jml).
 
 on:
   push:
@@ -13,11 +16,15 @@ on:
     paths:
       - 'src/main/java/io/github/peppe289/security_gatekeeper/core/**'
       - '.github/workflows/openjml.yml'
+      - 'src/main/jml/**'
+      - 'src/test/java/io/github/peppe289/security_gatekeeper/core/**'
   pull_request:
     branches: [master]
     paths:
       - 'src/main/java/io/github/peppe289/security_gatekeeper/core/**'
       - '.github/workflows/openjml.yml'
+      - 'src/main/jml/**'
+      - 'src/test/java/io/github/peppe289/security_gatekeeper/core/**'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +33,7 @@ permissions:
 env:
   OPENJML_VERSION: '21.0.29'
   CORE_DIR: src/main/java/io/github/peppe289/security_gatekeeper/core
+  SPECS: src/main/jml
 
 jobs:
   openjml:
@@ -57,12 +65,12 @@ jobs:
       # targeting another platform makes those specs fail to load. The project targets
       # Java 25, but core must stay within Java 21 language features so OpenJML can parse it.
       - name: Type check
-        run: ~/openjml/openjml -check @/tmp/core-sources.txt
+        run: ~/openjml/openjml -check --specs-path "$SPECS" @/tmp/core-sources.txt
 
       - name: Static verification
         run: |
           set -o pipefail
-          ~/openjml/openjml -esc -progress @/tmp/core-sources.txt 2>&1 | tee /tmp/esc.log
+          ~/openjml/openjml -esc -progress --specs-path "$SPECS" @/tmp/core-sources.txt 2>&1 | tee /tmp/esc.log
 
       - name: Verification summary
         if: ${{ always() }}
@@ -81,3 +89,72 @@ jobs:
             echo '```'
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  rac:
+    name: Runtime assertion checking (core)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Cache OpenJML
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: ~/openjml
+          key: openjml-${{ env.OPENJML_VERSION }}
+
+      - name: Install OpenJML
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/openjml.zip \
+            "https://github.com/OpenJML/OpenJML/releases/download/${OPENJML_VERSION}/openjml-ubuntu-24.04-${OPENJML_VERSION}.zip"
+          mkdir -p ~/openjml
+          unzip -q /tmp/openjml.zip -d ~/openjml
+
+      - name: Compile core with runtime checks
+        run: |
+          find "$CORE_DIR" -name '*.java' | sort > /tmp/core-sources.txt
+          mkdir -p target/rac target/rac-lib
+          ~/openjml/openjml -rac --specs-path "$SPECS" -d target/rac @/tmp/core-sources.txt
+          # JML's bigint/real types (org.jmlspecs.lang) live in the java.base module of OpenJML's
+          # own JDK 21, not in jmlruntime.jar: package them so the tests can run on JDK 25.
+          jar cf target/rac-lib/jml-lang.jar -C ~/openjml/jdk/modules/java.base org/jmlspecs/lang
+
+      - name: Core tests on the instrumented classes
+        run: |
+          set -o pipefail
+          ./mvnw -B -ntp -Prac -Dopenjml.home="$HOME/openjml" test 2>&1 | tee /tmp/rac.log
+
+      # OpenJML reports violations without failing the test. Every report fails the job except
+      # an invariant on leaving a constructor: those happen only when a constructor rejects its
+      # arguments and throws before assigning the fields (the object is never returned); the
+      # normal exit of every constructor is proved by ESC.
+      - name: Contract violations
+        if: ${{ always() }}
+        run: |
+          [ -f /tmp/rac.log ] || exit 1
+          grep -E 'verify: JML' /tmp/rac.log | sed -E 's|^.*/core/|core/|' > /tmp/violations.txt || true
+          ctor='invariant is false on leaving method ([A-Za-z0-9_.]+)\.([A-Za-z0-9_]+)\.\2(\(|$)'
+          tolerated=$(grep -cE "$ctor" /tmp/violations.txt || true)
+          unexpected=$(grep -vE "$ctor" /tmp/violations.txt | grep -c . || true)
+          {
+            echo "### OpenJML runtime assertion checking"
+            echo
+            echo "- tests run on instrumented classes: $(grep -oE 'Tests run: [0-9]+, Failures' /tmp/rac.log | tail -1 | grep -oE '[0-9]+')"
+            echo "- invariant reports on rejected constructor arguments (tolerated): $tolerated"
+            echo "- other contract violations: $unexpected"
+            if [ "$unexpected" -gt 0 ]; then
+              echo
+              echo '```'
+              grep -vE "$ctor" /tmp/violations.txt | sed -E 's/\(java[^)]*\)//' | sort | uniq -c | sort -rn | head -50
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$unexpected" -eq 0 ]
