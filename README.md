@@ -278,7 +278,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] Reviewers and assignees for Dependabot pull requests (`CODEOWNERS` / `assignees`)
 - [x] CodeQL and a Dependabot-alert check integrated as CI quality gates
 - [x] Dependabot alerts and security updates enabled; alerts reviewed (none open or closed so far) *(GitHub)*
-- [ ] [`security.md`](docs/security.md) report: configuration, security policy, alert metrics
+- [x] [`security.md`](docs/security.md) report: configuration, security policy, alert metrics
 
 ### Lab 8: Secret scanning and vulnerability management
 - [x] GitGuardian, Snyk and SonarQube Cloud integrated in the pipeline (`security.yml`)
