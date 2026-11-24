@@ -257,7 +257,7 @@ Markdown file of at most 5,000 characters, linked from this README. Items marked
 - [x] OpenJML set up (`.github/workflows/openjml.yml`)
 - [x] Static verification with ESC
 - [x] Runtime assertion checking with RAC (core unit tests on instrumented classes, gated in `openjml.yml`)
-- [x] [`verification.md`](docs/verification.md) report: setup, specifications, ESC and RAC results, lessons learned
+- [x] [`verification.md`](verification.md) report: setup, specifications, ESC and RAC results, lessons learned
 
 ### Lab 6: Microbenchmarking with JMH
 - [x] JMH dependencies in `pom.xml` and a `benchmark` package
