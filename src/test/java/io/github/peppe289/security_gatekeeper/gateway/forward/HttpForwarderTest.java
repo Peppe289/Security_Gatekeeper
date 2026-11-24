@@ -120,6 +120,29 @@ class HttpForwarderTest {
         }
 
         @Test
+        void requestThatWouldLeaveTheUpstreamIsA400() {
+            // The resolution filter never produces such a path; the forwarder refuses it anyway.
+            RoutePolicy hostOnly = new RoutePolicy("svc", "http://upstream:8080", true, null, 10, 10);
+            ProxyExchange exchange = new ProxyExchange("GET", "/svc", null, Map.of(), InputStream.nullInputStream(),
+                    -1, "10.0.0.1", "http");
+            exchange.resolveRoute("svc", hostOnly, "@evil.example/steal");
+
+            ForwardingException e = assertThrows(ForwardingException.class, () -> forwarder.buildRequest(exchange));
+            assertEquals(400, e.status());
+        }
+
+        @Test
+        void sameOriginCheck() throws Exception {
+            URI route = URI.create("http://upstream:8080/base");
+            HttpForwarder.requireSameOrigin(URI.create("http://UPSTREAM:8080/base/x?y=1"), route);
+            for (String other : List.of("https://upstream:8080/base", "http://upstream:9090/base",
+                    "http://evil:8080/base", "http://user@upstream:8080/base")) {
+                assertThrows(ForwardingException.class, () -> HttpForwarder.requireSameOrigin(URI.create(other), route),
+                        other);
+            }
+        }
+
+        @Test
         void unrepresentableRequestIsA400() {
             ProxyExchange invalidMethod = exchange("GE T", null, Map.of(), -1);
 

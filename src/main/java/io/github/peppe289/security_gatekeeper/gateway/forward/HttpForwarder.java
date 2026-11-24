@@ -67,7 +67,9 @@ public class HttpForwarder {
         try {
             String target = exchange.route().getTargetUrl() + exchange.upstreamPath()
                     + (exchange.rawQuery() == null ? "" : "?" + exchange.rawQuery());
-            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(target))
+            URI uri = URI.create(target);
+            requireSameOrigin(uri, URI.create(exchange.route().getTargetUrl()));
+            HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
                     .timeout(responseTimeout)
                     .method(exchange.method(), bodyPublisher(exchange));
             for (Map.Entry<String, List<String>> h : ProxyHeaders.forUpstream(exchange, apiKeyHeader, sessionCookie).entrySet()) {
@@ -79,6 +81,22 @@ public class HttpForwarder {
         } catch (IllegalArgumentException e) {
             // malformed URI, method or header value: the client sent something we cannot represent upstream
             throw new ForwardingException(400, "Request cannot be forwarded", e);
+        }
+    }
+
+    /**
+     * Defence in depth against server-side request forgery: the client only supplies the path
+     * and query appended to the route's target URL, and the request must still go to the
+     * configured scheme, host and port. Today the path always starts with {@code /}, so this
+     * cannot fail; the check keeps that guarantee explicit if the URL building ever changes.
+     */
+    static void requireSameOrigin(URI uri, URI route) throws ForwardingException {
+        boolean same = uri.getRawUserInfo() == null
+                && route.getScheme().equalsIgnoreCase(String.valueOf(uri.getScheme()))
+                && route.getHost().equalsIgnoreCase(String.valueOf(uri.getHost()))
+                && route.getPort() == uri.getPort();
+        if (!same) {
+            throw new ForwardingException(400, "Request would leave the route's upstream", null);
         }
     }
 
