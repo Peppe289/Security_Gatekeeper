@@ -1,8 +1,8 @@
 name: CodeQL
 
 # Static analysis of the Java code with CodeQL (`security-and-quality` queries). Results go to
-# Security > Code scanning; the job fails on any High or Critical security alert, or on any
-# error-level finding, in the analysed commit.
+# Security > Code scanning; the job fails while a High or Critical security alert, or an
+# error-level finding, is open on the analysed ref.
 
 on:
   push:
@@ -48,41 +48,35 @@ jobs:
       - name: Build
         run: ./mvnw -B -ntp -DskipTests compile
 
+      # Waits until GitHub has processed the results (wait-for-processing defaults to true),
+      # so the alerts of this commit can be queried right after.
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: /language:java-kotlin
-          output: sarif-results
 
-      # Quality gate. Security alerts carry a CVSS-like `security-severity` (High >= 7.0,
-      # Critical >= 9.0); quality alerts only a level (error, warning, note).
+      # Quality gate on the open alerts of this ref, so a dismissal with a written reason
+      # (Security > Code scanning) is respected. Blocking: High or Critical security alerts
+      # (security-severity >= 7.0) and error-level findings.
       - name: Quality gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/merge', github.event.number) || github.ref }}
         run: |
-          python3 - <<'EOF'
-          import glob, json, os, sys
-          results, rules = [], {}
-          for path in glob.glob('sarif-results/*.sarif'):
-              for run in json.load(open(path))['runs']:
-                  components = [run['tool']['driver']] + run['tool'].get('extensions', [])
-                  for component in components:
-                      for rule in component.get('rules', []):
-                          rules[rule['id']] = rule.get('properties', {})
-                  results += run.get('results', [])
-          rows, blocking = [], 0
-          for r in results:
-              props = rules.get(r['ruleId'], {})
-              score = float(props.get('security-severity', 0) or 0)
-              level = r.get('level', props.get('problem.severity', 'warning'))
-              blocks = score >= 7.0 or level == 'error'
-              blocking += blocks
-              loc = r['locations'][0]['physicalLocation']
-              where = f"{loc['artifactLocation']['uri']}:{loc.get('region', {}).get('startLine', '?')}"
-              rows.append(f"| {'❌' if blocks else '⚠️'} | `{r['ruleId']}` | {score or '-'} | {level} | `{where}` |")
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-              out.write(f"### CodeQL: {len(results)} alert(s), {blocking} blocking\n\n")
-              if rows:
-                  out.write("| | Rule | Security severity | Level | Location |\n|---|---|---|---|---|\n")
-                  out.write('\n'.join(rows) + '\n')
-          print(f"{len(results)} alert(s), {blocking} blocking")
-          sys.exit(1 if blocking else 0)
-          EOF
+          gh api --paginate "repos/$REPOSITORY/code-scanning/alerts?state=open&ref=$REF&per_page=100" \
+            --jq '.[] | [(if (.rule.security_severity_level == "high" or .rule.security_severity_level == "critical" or .rule.severity == "error") then "❌" else "⚠️" end),
+                         .rule.id, (.rule.security_severity_level // "-"), .rule.severity,
+                         "\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)", .html_url] | @tsv' > alerts.tsv
+          total=$(grep -c . alerts.tsv || true)
+          blocking=$(grep -c '^❌' alerts.tsv || true)
+          {
+            echo "### CodeQL: $total open alert(s), $blocking blocking"
+            if [ "$total" -gt 0 ]; then
+              echo
+              echo "| | Rule | Security severity | Level | Location | Alert |"
+              echo "|---|---|---|---|---|---|"
+              awk -F'\t' '{ printf "| %s | `%s` | %s | %s | `%s` | [link](%s) |\n", $1, $2, $3, $4, $5, $6 }' alerts.tsv
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$blocking" -eq 0 ]
