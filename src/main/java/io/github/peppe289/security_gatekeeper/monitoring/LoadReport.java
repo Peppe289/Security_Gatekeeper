@@ -131,7 +131,7 @@ public record LoadReport(Instant sampledAt, Duration interval, Duration covered,
         List<Meter> meters = List.of(
                 meter("CPU", r.processors() + (r.processors() == 1 ? " CPU" : " CPUs") + " available to the container",
                         samples, s -> s.reading().cpuLoad()),
-                meter("Memory", bytes(r.memoryUsed()) + " of " + bytes(r.memoryTotal()) + ", page cache included",
+                meter("Memory", bytes(r.memoryUsed()) + " of " + bytes(r.memoryTotal()) + ", reclaimable page cache excluded",
                         samples, s -> ratio(s.reading().memoryUsed(), s.reading().memoryTotal())),
                 meter("JVM heap", bytes(r.heapUsed()) + " of " + bytes(r.heapMax()),
                         samples, s -> ratio(s.reading().heapUsed(), s.reading().heapMax())),

@@ -11,7 +11,7 @@ public interface SystemProbe {
      *
      * @param cpuLoad         CPU in use, as a fraction of the CPUs available to the container
      * @param processors      CPUs available to the container
-     * @param memoryUsed      memory in use in the container, page cache included, in bytes
+     * @param memoryUsed      memory in use in the container, reclaimable page cache excluded, in bytes
      * @param memoryTotal     memory available to the container (its limit, or the host's memory)
      * @param heapUsed        JVM heap in use, in bytes
      * @param heapMax         maximum JVM heap, in bytes
