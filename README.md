@@ -186,6 +186,11 @@ One-time setup on GitHub:
   variables `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY`. Turn off *Automatic Analysis*
   in the project settings, since the analysis runs from CI.
 
+## Reporting a vulnerability
+
+Please do not open a public issue. Report it privately as described in
+[`SECURITY.md`](SECURITY.md) (GitHub's *Report a vulnerability*).
+
 ## Current limitations
 
 - One upstream per route: no load balancing or upstream health checks.
