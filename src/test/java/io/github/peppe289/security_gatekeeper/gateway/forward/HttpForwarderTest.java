@@ -107,6 +107,13 @@ class HttpForwarderTest {
         }
 
         @Test
+        void transferEncodingOtherThanChunkedMeansNoBody() throws Exception {
+            HttpRequest request = forwarder.buildRequest(exchange("POST", null,
+                    Map.of("Transfer-Encoding", List.of("gzip")), -1));
+            assertEquals(0, request.bodyPublisher().orElseThrow().contentLength());
+        }
+
+        @Test
         void noLengthAndNoChunkingMeansNoBody() throws Exception {
             HttpRequest request = forwarder.buildRequest(exchange("POST", null, Map.of(), -1));
             assertEquals(0, request.bodyPublisher().orElseThrow().contentLength());

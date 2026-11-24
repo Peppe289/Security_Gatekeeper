@@ -137,6 +137,13 @@ class ProxyHeadersTest {
         }
 
         @Test
+        void onlyTheConnectionHeaderListsHeadersToDrop() {
+            // A header whose value happens to name another header must not remove it.
+            Map<String, List<String>> out = upstream(Map.of("X-Ref", List.of("X-Kept"), "X-Kept", List.of("1")));
+            assertEquals(List.of("1"), get(out, "X-Kept"));
+        }
+
+        @Test
         void withoutHostThereIsNoForwardedHost() {
             assertNull(get(upstream(Map.of()), "X-Forwarded-Host"));
         }
@@ -167,6 +174,12 @@ class ProxyHeadersTest {
                     List.of("app=1; Path=/", "GKSESSION=attacker; Path=/")));
 
             assertEquals(List.of("app=1; Path=/"), get(out, "Set-Cookie"));
+        }
+
+        @Test
+        void onlySetCookieIsFilteredBySessionName() {
+            Map<String, List<String>> out = client(Map.of("X-Note", List.of("GKSESSION=documented")));
+            assertEquals(List.of("GKSESSION=documented"), get(out, "X-Note"));
         }
 
         @Test

@@ -94,6 +94,15 @@ class RouteServiceTest {
         }
 
         @Test
+        void explicitRateParametersAreKept() {
+            service.create(definition("svc", false, 7L, 3L));
+
+            verify(repository).insert(inserted.capture());
+            assertEquals(7, inserted.getValue().getBurstCapacity());
+            assertEquals(3, inserted.getValue().getRefillPerSecond());
+        }
+
+        @Test
         void missingRateParametersFallBackToTheConfiguredDefaults() {
             service.create(definition("svc", false, null, null));
 
@@ -204,6 +213,7 @@ class RouteServiceTest {
 
             assertThrows(RouteNotFoundException.class, () -> service.delete("gone"));
             assertThrows(RouteNotFoundException.class, () -> service.delete(null));
+            verify(repository, never()).delete(null);
             verifyNoInteractions(rateLimiter);
         }
     }
