@@ -105,8 +105,11 @@ public class JvmSystemProbe implements SystemProbe {
         if (max == null || current == null || max.isBlank() || max.trim().equals("max")) {
             return null;
         }
-        long limit = Long.parseLong(max.trim());
-        long usage = Long.parseLong(current.trim());
+        long limit = parseLong(max);
+        long usage = parseLong(current);
+        if (limit < 0 || usage < 0) {
+            return null;
+        }
         long inactiveFile = statValue(stat, "inactive_file");
         return new long[] {Math.max(0, usage - Math.max(0, inactiveFile)), limit};
     }
@@ -129,10 +132,20 @@ public class JvmSystemProbe implements SystemProbe {
         for (String line : lines) {
             String[] fields = line.trim().split("\\s+");
             if (fields.length >= 2 && fields[0].equals(key)) {
-                return Long.parseLong(fields[1]);
+                return parseLong(fields[1]);
             }
         }
         return -1;
+    }
+
+    /** A non-negative number, or {@code -1} if {@code s} is not one: /proc files are not trusted blindly. */
+    static long parseLong(String s) {
+        try {
+            long value = Long.parseLong(s.trim());
+            return value < 0 ? -1 : value;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     private static String readFirstLine(Path file) {
@@ -179,8 +192,13 @@ public class JvmSystemProbe implements SystemProbe {
             if (fields.length <= TX_BYTES) {
                 continue;
             }
-            rx += Long.parseLong(fields[RX_BYTES]);
-            tx += Long.parseLong(fields[TX_BYTES]);
+            long lineRx = parseLong(fields[RX_BYTES]);
+            long lineTx = parseLong(fields[TX_BYTES]);
+            if (lineRx < 0 || lineTx < 0) {
+                continue; // malformed line
+            }
+            rx += lineRx;
+            tx += lineTx;
             found = true;
         }
         return found ? new long[] {rx, tx} : new long[] {-1, -1};

@@ -145,4 +145,25 @@ class JvmSystemProbeTest {
         Files.writeString(cgroup.resolve("memory.current"), "1\n");
         assertNull(new JvmSystemProbe(dir.resolve("net"), dir.resolve("none"), cgroup).readMemory());
     }
+
+    @Test
+    void numbersFromProcAreParsedDefensively() {
+        assertEquals(42, JvmSystemProbe.parseLong(" 42 "));
+        assertEquals(-1, JvmSystemProbe.parseLong("max"));
+        assertEquals(-1, JvmSystemProbe.parseLong("-5"));
+        assertEquals(-1, JvmSystemProbe.parseLong("99999999999999999999"));
+    }
+
+    @Test
+    void malformedNetDevLinesAreSkipped() {
+        List<String> lines = List.of(
+                "  eth0: 1000 10 0 0 0 0 0 0 2000 20 0 0 0 0 0 0",
+                "  eth1: oops 5 0 0 0 0 0 0 700 7 0 0 0 0 0 0");
+        assertArrayEquals(new long[] {1000, 2000}, JvmSystemProbe.parseNetDev(lines));
+    }
+
+    @Test
+    void malformedStatValueIsUnknown() {
+        assertEquals(-1, JvmSystemProbe.statValue(List.of("inactive_file lots"), "inactive_file"));
+    }
 }
