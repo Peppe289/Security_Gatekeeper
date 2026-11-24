@@ -26,6 +26,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Quality gate on the supply chain: fails while a High or Critical Dependabot alert is open.
+  # The token only needs to read Dependabot alerts (vulnerability-alerts: read); fork pull
+  # requests get no access to them and skip the check.
+  dependabot-alerts:
+    name: Dependabot alerts gate
+    if: ${{ github.event.pull_request.head.repo.fork != true }}
+    runs-on: ubuntu-latest
+    permissions:
+      vulnerability-alerts: read
+    steps:
+      - name: No open High or Critical Dependabot alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          alerts=$(gh api --paginate "repos/$REPOSITORY/dependabot/alerts?state=open&severity=high,critical&per_page=100" \
+            --jq '.[] | "| \(.security_advisory.severity) | `\(.dependency.package.name)` | \(.security_advisory.cve_id // .security_advisory.ghsa_id) | \(.html_url) |"')
+          count=$(printf '%s' "$alerts" | grep -c . || true)
+          {
+            echo "### Dependabot: $count open High/Critical alert(s)"
+            if [ "$count" -gt 0 ]; then
+              echo
+              echo "| Severity | Package | Advisory | Alert |"
+              echo "|---|---|---|---|"
+              echo "$alerts"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$count" -eq 0 ]
+
   secrets:
     name: Secret scanning (GitGuardian)
     runs-on: ubuntu-latest
