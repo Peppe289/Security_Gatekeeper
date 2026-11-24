@@ -314,6 +314,39 @@
             </build>
         </profile>
 
+        <!-- `mvn -Prac -Dopenjml.home=<OpenJML dir> test`: runtime assertion checking. Runs the core
+             unit tests against the classes compiled by `openjml -rac` (specs path src/main/jml,
+             output target/rac) instead of target/classes, so
+             every call made by the tests also checks the JML contracts. OpenJML reports each
+             violation as a "verify: JML ..." line on the console; openjml.yml gates on them. -->
+        <profile>
+            <id>rac</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <classesDirectory>${project.build.directory}/rac</classesDirectory>
+                            <!-- jmlruntime.jar, plus org.jmlspecs.lang (JML's bigint/real types), which
+                                 OpenJML ships inside the java.base module of its own JDK 21: extracted
+                                 into target/rac-lib/jml-lang.jar so the tests can run on JDK 25. -->
+                            <additionalClasspathElements>
+                                <additionalClasspathElement>${openjml.home}/jmlruntime.jar</additionalClasspathElement>
+                                <additionalClasspathElement>${project.build.directory}/rac-lib/jml-lang.jar</additionalClasspathElement>
+                            </additionalClasspathElements>
+                            <includes>
+                                <include>**/core/**/*Test.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!-- `mvn -Pmutation-all test-compile org.pitest:pitest-maven:mutationCoverage`: mutation
              campaign on the whole project, for analysis only (no threshold). Unit tests only:
              integration tests would start PostgreSQL for every mutant. Report in
