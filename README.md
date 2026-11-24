@@ -159,7 +159,8 @@ GitHub Actions workflows live in `.github/workflows`:
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci.yml` | push, pull request | `./mvnw verify` (unit and integration tests, JaCoCo gates on `core` and on the whole project), PiTest with blocking mutation and coverage thresholds, Docker image build. The JaCoCo and PiTest reports are attached to each run as artifacts. |
-| `security.yml` | push, pull request, weekly | GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
+| `security.yml` | push, pull request, weekly | Dependabot-alert gate (fails on open High/Critical alerts), GitGuardian secret scanning, Snyk scans of the Maven dependencies and the Docker image, SonarQube Cloud analysis with coverage. |
+| `codeql-analysis.yml` | push, pull request, weekly | CodeQL static analysis (`security-and-quality`), results in Security › Code scanning; fails on High/Critical security alerts or error-level findings. |
 | `openjml.yml` | changes to `core` | OpenJML type check and static verification of the JML specifications (both blocking). |
 | `benchmark.yml` | manual | JMH benchmarks, with results in the run summary. |
 | `docker-build.yml` | CI succeeded on a push to `master` | Builds the tested commit for amd64 and arm64 and pushes it to Docker Hub (`peppe289/security_gatekeeper`) as `:latest` and `:sha-<commit>`. |
