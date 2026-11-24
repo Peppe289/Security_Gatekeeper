@@ -314,6 +314,41 @@
             </build>
         </profile>
 
+        <!-- `mvn -Pmutation-all test-compile org.pitest:pitest-maven:mutationCoverage`: mutation
+             campaign on the whole project, for analysis only (no threshold). Unit tests only:
+             integration tests would start PostgreSQL for every mutant. Report in
+             target/pit-reports-all. -->
+        <profile>
+            <id>mutation-all</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <configuration>
+                            <targetClasses combine.self="override">
+                                <param>io.github.peppe289.security_gatekeeper.*</param>
+                            </targetClasses>
+                            <targetTests combine.self="override">
+                                <param>io.github.peppe289.security_gatekeeper.*</param>
+                            </targetTests>
+                            <excludedClasses>
+                                <param>io.github.peppe289.security_gatekeeper.SecurityGatekeeperApplication</param>
+                            </excludedClasses>
+                            <excludedTestClasses combine.self="override">
+                                <param>io.github.peppe289.security_gatekeeper.benchmark.*</param>
+                                <param>*IntegrationTest</param>
+                            </excludedTestClasses>
+                            <mutationThreshold combine.self="override">0</mutationThreshold>
+                            <coverageThreshold combine.self="override">0</coverageThreshold>
+                            <threads>4</threads>
+                            <reportsDirectory>${project.build.directory}/pit-reports-all</reportsDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <!-- `mvn -Pbenchmark -DskipTests verify [-Djmh.args="TokenBucket -f 1"]`: runs JMH benchmarks -->
         <profile>
             <id>benchmark</id>
