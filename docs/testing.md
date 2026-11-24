@@ -2,12 +2,12 @@
 
 ## Approach
 
-**329 tests** (JUnit 6.1.3, Mockito 5.24.0), all passing, run by `./mvnw verify` locally and
+**357 tests** (JUnit 6.1.3, Mockito 5.24.0), all passing, run by `./mvnw verify` locally and
 in CI. They are organised by test level:
 
 | Level | Tests | Time | Scope |
 |---|---|---|---|
-| Unit | 297 | ~4 s | one class in isolation; collaborators mocked or replaced by fakes |
+| Unit | 325 | ~4 s | one class in isolation; collaborators mocked or replaced by fakes |
 | Integration | 32 | ~40 s | the whole application on a random port, with a real PostgreSQL started by Testcontainers |
 
 The domain (`core`) has no framework and no I/O, so it is tested without mocks; the Spring
@@ -22,8 +22,8 @@ migrations, Spring Security, the servlet pipeline and the shutdown order.
 | Route policy and checks (`core`) | 55 | prefix/URL validation, 404/503/401/403 decisions, constant-time key comparison |
 | Audit chain (`core`) | 21 | hash linking, canonical form, verifier detecting edits, gaps and reordering |
 | `RateLimiterService` | 14 | per-client buckets, eviction, fail-closed limit on tracked clients |
-| `AuditService`, keys, anchors, verifier | 37 | async writer, retries, sequence collisions, HMAC, anchors, tampering cases |
-| Gateway filters and forwarding | 55 | pipeline order, short-circuits, header rewriting, 502/504/400 mapping |
+| `AuditService`, keys, anchors, verifier | 59 | async writer, retries, sequence collisions, HMAC, anchors, tampering cases |
+| Gateway filters and forwarding | 60 | pipeline order, short-circuits, header rewriting, 502/504/400 mapping |
 | Admin (`LoginThrottle`, dashboard) | 15 | brute-force blocking and recovery, statistics cache, verification cooldown |
 | Monitoring | 39 | load sampling, peaks, thresholds |
 | Integration | 32 | end-to-end proxying, admin panel and CSRF, audit tampering, shutdown |
@@ -41,7 +41,7 @@ Tests are derived both from the **specification** (black-box) and from the **cod
   refill at `period − 1` and `period` nanoseconds, and the login throttle one failure short
   of the limit.
 - **Branch coverage** guides the rest: JaCoCo shows 99.1% lines and 100% branches on
-  `core`, 96.4% / 91.1% on the whole project. Coverage is an indicator, not the goal.
+  `core`, 96.8% / 92.6% on the whole project. Coverage is an indicator, not the goal.
 - `@ParameterizedTest` keeps boundary tables readable; `@Nested` groups tests by behaviour.
 
 ## Mocking strategy
@@ -54,7 +54,7 @@ instead of sleeping. This improves *controllability*. Mocked collaborators impro
 
 ## FIRST principles
 
-- **Fast**: the 297 unit tests run in about 4 s. Integration tests share one cached Spring
+- **Fast**: the 325 unit tests run in about 4 s. Integration tests share one cached Spring
   context and one database container.
 - **Independent**: no shared mutable state. Each integration test creates its own route,
   and the shutdown test uses its own application context.

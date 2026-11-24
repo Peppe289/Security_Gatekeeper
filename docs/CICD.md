@@ -21,7 +21,7 @@ mutation 40 s, image 44 s on the latest run).
 
 ### 1. Build and test
 1. **Checkout** and **JDK 25** (Temurin) with the Maven cache.
-2. **`./mvnw -B -ntp verify`** compiles, runs the **329 tests** (297 unit, 32 integration
+2. **`./mvnw -B -ntp verify`** compiles, runs the **357 tests** (325 unit, 32 integration
    with a real PostgreSQL started by Testcontainers on the runner's Docker), produces the
    JaCoCo report and enforces the **coverage gates** (95% on `core`, 85%/80% project-wide).
    Any failing test or coverage drop fails the job.
