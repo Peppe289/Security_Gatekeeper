@@ -99,6 +99,8 @@ jobs:
   mutation:
     name: Mutation testing (PiTest)
     runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.score.outputs.score }}
     steps:
       - uses: actions/checkout@v7
 
@@ -131,6 +133,18 @@ jobs:
                         f"line {m.findtext('lineNumber')}: {m.findtext('description')}")
           EOF
 
+      # Mutation score as PiTest defines it: detected (killed or timed out) over all mutants.
+      - name: Mutation score
+        id: score
+        if: ${{ hashFiles('target/pit-reports/mutations.xml') != '' }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import xml.etree.ElementTree as ET
+          muts = list(ET.parse('target/pit-reports/mutations.xml').getroot())
+          detected = sum(m.get('detected') == 'true' for m in muts)
+          print(f"score={100 * detected // len(muts) if muts else 0}")
+          EOF
+
       - name: Upload mutation report
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -138,6 +152,32 @@ jobs:
           name: pitest-report
           path: target/pit-reports/
           if-no-files-found: ignore
+
+  # Publishes the mutation score as a shields.io endpoint on the `badges` branch, read by the
+  # README badge. Only for pushes to master, and in a job of its own: it is the only one that
+  # can write to the repository, and it runs no project code.
+  mutation-badge:
+    name: Mutation badge
+    needs: mutation
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && needs.mutation.outputs.score != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the badge data
+        env:
+          SCORE: ${{ needs.mutation.outputs.score }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$SCORE" -ge 90 ]; then color=brightgreen; elif [ "$SCORE" -ge 75 ]; then color=yellow; else color=red; fi
+          mkdir badges && cd badges
+          printf '{"schemaVersion":1,"label":"mutation (core)","message":"%s%%","color":"%s"}\n' "$SCORE" "$color" > mutation.json
+          git init -q -b badges
+          git add mutation.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -m "Mutation score ${SCORE}%"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" badges
 
   docker:
     name: Docker image build
